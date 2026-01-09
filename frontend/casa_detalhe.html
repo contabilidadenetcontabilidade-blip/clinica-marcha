@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Casa - Marcha Cup</title>
+  <link rel="stylesheet" href="casa_detalhe.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <button class="back-btn" onclick="window.location.href='cup.html'">←</button>
+    <span id="house-name-top">Casa</span>
+  </header>
+
+  <main>
+    <section class="house-banner">
+      <img id="house-crest" class="house-crest-big" src="" alt="Brasão">
+      <div class="house-info">
+        <h1 id="house-name"></h1>
+        <p class="total-points">
+          Pontos totais: <span id="total-points">0</span>
+        </p>
+        <p class="best-category">
+          Melhor categoria: <span id="best-category">–</span>
+        </p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Ranking de Atletas</h2>
+        <button onclick="openAddAthlete()">+ Atleta</button>
+      </div>
+      <ul id="athletes-list"></ul>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Registrar Pontos</h2>
+        <button onclick="openAddScore()">+ Pontos</button>
+      </div>
+      <p class="hint">Escolha o atleta e a categoria de pontuação.</p>
+    </section>
+  </main>
+
+  <!-- Modal novo atleta -->
+  <div id="modal-athlete" class="modal hidden">
+    <div class="modal-content">
+      <h3>Novo Atleta</h3>
+      <form id="form-athlete">
+        <label>Nome:</label>
+        <input name="name" required>
+        <button type="submit">Salvar</button>
+        <button type="button" onclick="closeAddAthlete()">Cancelar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal registrar pontos -->
+  <div id="modal-score" class="modal hidden">
+    <div class="modal-content">
+      <h3>Registrar Pontos</h3>
+      <form id="form-score">
+        <label>Atleta:</label>
+        <select name="athlete_id" id="select-athlete" required></select>
+
+        <label>Categoria / Regra:</label>
+        <select name="rule_id" id="select-rule" required></select>
+
+        <button type="submit">Registrar</button>
+        <button type="button" onclick="closeAddScore()">Cancelar</button>
+      </form>
+      <p class="hint-small">
+        * Para criar novas categorias de pontuação, use a tela de <a href="regras.html">Regras</a>.
+      </p>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="casa_detalhe.js"></script>
+</body>
+
+</html>

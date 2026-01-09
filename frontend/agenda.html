@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Agenda - Marcha</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="agenda.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <span class="title">Agenda</span>
+  </header>
+
+  <main>
+    <div class="page-header">
+      <h1>Agenda de Atendimentos</h1>
+      <div class="header-actions">
+        <button class="btn-secondary" onclick="previousWeek()">← Semana Anterior</button>
+        <button class="btn-secondary" onclick="today()">Hoje</button>
+        <button class="btn-secondary" onclick="nextWeek()">Próxima Semana →</button>
+        <button class="btn-primary" onclick="openNewAppointment()">+ Novo Agendamento</button>
+      </div>
+    </div>
+
+    <section class="card view-selector">
+      <button class="view-btn active" onclick="setView('day')" id="btn-view-day">Dia</button>
+      <button class="view-btn" onclick="setView('week')" id="btn-view-week">Semana</button>
+      <span id="current-date-display" class="date-display"></span>
+    </section>
+
+    <section class="card" id="agenda-container">
+      <div id="agenda-view"></div>
+    </section>
+  </main>
+
+  <!-- Modal Novo/Editar Agendamento -->
+  <div id="modal-appointment" class="modal hidden">
+    <div class="modal-content modal-large">
+      <h3 id="modal-appointment-title">Novo Agendamento</h3>
+      <form id="form-appointment">
+        <input type="hidden" id="appointment-id" name="id">
+        
+        <div class="form-group">
+          <label>Paciente *</label>
+          <select id="appointment-patient_id" name="patient_id" required></select>
+        </div>
+
+        <div class="form-group">
+          <label>Título *</label>
+          <input type="text" id="appointment-title" name="title" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Data *</label>
+            <input type="date" id="appointment-date" name="appointment_date" required>
+          </div>
+          <div class="form-group">
+            <label>Horário Início *</label>
+            <input type="time" id="appointment-start_time" name="start_time" required>
+          </div>
+          <div class="form-group">
+            <label>Horário Fim</label>
+            <input type="time" id="appointment-end_time" name="end_time">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tipo de Serviço</label>
+            <select id="appointment-service_type" name="service_type">
+              <option value="Fisioterapia">Fisioterapia</option>
+              <option value="Pilates">Pilates</option>
+              <option value="Avaliação">Avaliação</option>
+              <option value="Retorno">Retorno</option>
+              <option value="Consulta">Consulta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Profissional</label>
+            <input type="text" id="appointment-professional" name="professional">
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="appointment-status" name="status">
+              <option value="agendado">Agendado</option>
+              <option value="confirmado">Confirmado</option>
+              <option value="realizado">Realizado</option>
+              <option value="cancelado">Cancelado</option>
+              <option value="falta">Falta</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Descrição</label>
+          <textarea id="appointment-description" name="description" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="appointment-notes" name="notes" rows="2"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Salvar</button>
+          <button type="button" class="btn-secondary" onclick="closeAppointmentModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="agenda.js"></script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Pacientes - Marcha</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="pacientes.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <span class="title">Pacientes</span>
+  </header>
+
+  <main>
+    <div class="page-header">
+      <h1>Cadastro de Pacientes</h1>
+      <button class="btn-primary" onclick="openNewPatient()">+ Novo Paciente</button>
+    </div>
+
+    <section class="card search-section">
+      <input type="text" id="search-input" placeholder="Buscar por nome, CPF ou telefone..." 
+             onkeyup="searchPatients()">
+      <label class="filter-active">
+        <input type="checkbox" id="filter-active" checked onchange="loadPatients()">
+        Mostrar apenas ativos
+      </label>
+    </section>
+
+    <section class="card">
+      <div id="patients-list-container">
+        <ul id="patients-list">
+          <li>Carregando pacientes...</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Novo/Editar Paciente -->
+  <div id="modal-patient" class="modal hidden">
+    <div class="modal-content modal-large">
+      <h3 id="modal-patient-title">Novo Paciente</h3>
+      <form id="form-patient">
+        <input type="hidden" id="patient-id" name="id">
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nome Completo *</label>
+            <input type="text" id="patient-name" name="name" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>CPF</label>
+            <input type="text" id="patient-cpf" name="cpf" placeholder="000.000.000-00">
+          </div>
+          <div class="form-group">
+            <label>Data de Nascimento</label>
+            <input type="date" id="patient-birth_date" name="birth_date">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Telefone</label>
+            <input type="tel" id="patient-phone" name="phone" placeholder="(00) 00000-0000">
+          </div>
+          <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="patient-email" name="email">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Endereço</label>
+          <input type="text" id="patient-address" name="address">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cidade</label>
+            <input type="text" id="patient-city" name="city">
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <input type="text" id="patient-state" name="state" maxlength="2" placeholder="SP">
+          </div>
+          <div class="form-group">
+            <label>CEP</label>
+            <input type="text" id="patient-zip_code" name="zip_code" placeholder="00000-000">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Contato de Emergência</label>
+            <input type="text" id="patient-emergency_contact" name="emergency_contact">
+          </div>
+          <div class="form-group">
+            <label>Telefone de Emergência</label>
+            <input type="tel" id="patient-emergency_phone" name="emergency_phone">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Convênio</label>
+            <input type="text" id="patient-health_insurance" name="health_insurance">
+          </div>
+          <div class="form-group">
+            <label>Número do Convênio</label>
+            <input type="text" id="patient-health_insurance_number" name="health_insurance_number">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="patient-notes" name="notes" rows="3"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Salvar</button>
+          <button type="button" class="btn-secondary" onclick="closePatientModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="pacientes.js"></script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,210 @@
+:root {
+    --house-color: #b30000;
+    --navy: #192C46;
+    --navy-dark: #0F1A2A;
+    --white: #ffffff;
+    --light: #eef2f6;
+  }
+  
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--light);
+    color: var(--navy-dark);
+  }
+  
+  .topbar {
+    background: var(--navy-dark);
+    color: var(--white);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--white);
+    font-size: 20px;
+    cursor: pointer;
+  }
+  
+  main {
+    padding: 16px;
+  }
+  
+  /* Banner da casa com textura levinha */
+  .house-banner {
+    background-color: var(--house-color);
+    background-image:
+      linear-gradient(135deg, rgba(255,255,255,0.12) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.12) 75%, transparent 75%, transparent);
+    background-size: 20px 20px;
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--white);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    margin-bottom: 18px;
+  }
+  
+  .house-crest-big {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.2);
+    object-fit: contain;
+  }
+  
+  .house-info h1 {
+    margin: 0 0 8px 0;
+    font-size: 1.6rem;
+  }
+  
+  .total-points,
+  .best-category {
+    margin: 2px 0;
+    font-size: 0.95rem;
+  }
+  
+  .card {
+    background: var(--white);
+    padding: 14px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    margin-bottom: 14px;
+  }
+  
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .card-header button {
+    border: none;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+    color: var(--white);
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+  }
+  
+  .card-header button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+  }
+  
+  #athletes-list {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 10px;
+  }
+  
+  #athletes-list li {
+    display: flex;
+    justify-content: space-between;
+    background: var(--light);
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  
+  .hint {
+    font-size: 0.9rem;
+    color: #555;
+  }
+  
+  .hint-small {
+    font-size: 0.8rem;
+    color: #777;
+  }
+  
+  /* Modais */
+  
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .hidden {
+    display: none;
+  }
+  
+  .modal-content {
+    background: var(--white);
+    padding: 18px;
+    border-radius: 10px;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .modal-content form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .modal-content button {
+    padding: 6px 0;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .modal-content button[type="submit"] {
+    background: var(--navy);
+    color: var(--white);
+  }
+  
+  .modal-content button[type="button"] {
+    background: #ccc;
+  }
+  .athlete-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    margin-top: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+  
+  .athlete-row:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  
+  .athlete-name-btn {
+    border: none;
+    background: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  
+  .athlete-name-btn:hover {
+    text-decoration: underline;
+  }
+  
+  .athlete-points {
+    font-weight: 600;
+  }
+  

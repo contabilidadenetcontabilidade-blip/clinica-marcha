@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Marcha Cup</title>
+  <link rel="stylesheet" href="cup.css">
+</head>
+
+<body>
+  <header class="cup-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <h1>Marcha Cup 🏆</h1>
+  </header>
+
+  <main>
+    <section class="cup-ranking">
+      <h2>Ranking das Casas</h2>
+      <ul id="houses-list"></ul>
+    </section>
+
+    <button class="add-house-btn" onclick="openCreateHouse()">+ Criar Casa</button>
+    <button class="add-house-btn" onclick="window.location.href='regras.html'">
+      Regras de Pontuação
+    </button>
+  </main>
+
+  <button id="add-score-btn" class="floating-btn" title="Registrar Pontos">
+    ➕
+  </button>
+
+  <!-- Modal criar casa -->
+  <div id="modal-casa" class="modal hidden">
+    <div class="modal-content">
+      <h3>Nova Casa</h3>
+      <form id="form-casa">
+        <label>Nome da Casa:</label>
+        <input name="name" required>
+
+        <label>Cor da Casa:</label>
+        <input type="color" name="color" required>
+
+        <label>Brasão (PNG, máximo 5MB):</label>
+        <input type="file" name="crest" accept=".png,image/png" required id="crest-input">
+        <small style="color: #666; font-size: 0.85rem;">Apenas arquivos PNG são aceitos</small>
+
+        <button type="submit">Salvar</button>
+        <button type="button" onclick="closeCreateHouse()">Cancelar</button>
+      </form>
+    </div>
+  </div>
+
+
+  <script src="utils.js"></script>
+  <script src="cup.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Regras de Pontuação - Marcha Cup</title>
+  <link rel="stylesheet" href="regras.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <button class="back-btn" onclick="window.location.href='cup.html'">←</button>
+    <span>Regras de Pontuação</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Regras Ativas</h2>
+      <ul id="rules-list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Nova Regra</h2>
+      <form id="form-rule">
+        <label>Nome da Regra:</label>
+        <input name="name" required>
+
+        <label>Valor em pontos (pode ser negativo):</label>
+        <input name="value" type="number" required>
+
+        <button type="submit">Salvar</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="utils.js"></script>
+  <script src="regras.js"></script>
+</body>
+
+</html>

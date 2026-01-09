@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Atleta - Marcha Cup</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="atleta_detalhe.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button class="back-btn" onclick="history.back()">←</button>
+    <span class="title" id="athlete-header">Atleta</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2 id="athlete-name">Nome do atleta</h2>
+      <p id="athlete-house">Casa: -</p>
+      <p id="athlete-total">Total de pontos: 0</p>
+    </section>
+
+    <section class="card">
+      <h2>Histórico de Pontos</h2>
+      <ul id="scores-list" class="scores-list">
+        <li>Carregando histórico...</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="utils.js"></script>
+  <script src="atleta_detalhe.js"></script>
+</body>
+</html>

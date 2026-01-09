@@ -1,0 +1,136 @@
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.view-selector {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.view-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.view-btn.active {
+  background: var(--navy);
+  color: white;
+  border-color: var(--navy);
+}
+
+.date-display {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--navy);
+}
+
+#agenda-view {
+  min-height: 400px;
+}
+
+.agenda-day-view {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 10px;
+}
+
+.time-slot {
+  padding: 10px;
+  text-align: right;
+  font-size: 0.9rem;
+  color: #666;
+  border-right: 1px solid #eee;
+}
+
+.appointments-column {
+  padding-left: 10px;
+}
+
+.appointment-item {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 16px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border-left: 5px solid var(--accent);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.appointment-item:hover {
+  transform: translateX(6px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.appointment-time {
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 4px;
+}
+
+.appointment-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.appointment-patient {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.appointment-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.status-agendado { background: #e3f2fd; color: #1976d2; }
+.status-confirmado { background: #f3e5f5; color: #7b1fa2; }
+.status-realizado { background: #e8f5e9; color: #388e3c; }
+.status-cancelado { background: #ffebee; color: #c62828; }
+.status-falta { background: #fff3e0; color: #e65100; }
+
+.agenda-week-view {
+  display: grid;
+  grid-template-columns: 80px repeat(7, 1fr);
+  gap: 10px;
+}
+
+.week-day-header {
+  padding: 10px;
+  text-align: center;
+  font-weight: 600;
+  background: var(--light);
+  border-radius: 6px;
+}
+
+.week-day {
+  min-height: 500px;
+  padding: 5px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+
+.week-day-today {
+  background: #f0f7ff;
+  border-color: var(--navy);
+}
+
+.agenda-empty {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+

@@ -1,0 +1,156 @@
+.summary-section {
+  margin-bottom: 20px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.summary-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.summary-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+.summary-card.highlight {
+  background: var(--navy);
+  color: white;
+}
+
+.summary-label {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.summary-card.highlight .summary-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.summary-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.summary-value.positive {
+  color: #4caf50;
+}
+
+.summary-value.negative {
+  color: #f44336;
+}
+
+.summary-card.highlight .summary-value {
+  color: white;
+}
+
+.filters-section {
+  margin-bottom: 20px;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filters select,
+.filters input[type="date"] {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.btn-expense {
+  background: #f44336;
+  color: white;
+}
+
+.btn-expense:hover {
+  background: #d32f2f;
+}
+
+#transactions-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.transaction-item {
+  background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left: 5px solid;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  cursor: pointer;
+}
+
+.transaction-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.transaction-item.receita {
+  border-left-color: #4caf50;
+}
+
+.transaction-item.despesa {
+  border-left-color: #f44336;
+}
+
+.transaction-info {
+  flex: 1;
+}
+
+.transaction-description {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.transaction-details {
+  font-size: 0.9rem;
+  color: #666;
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.transaction-amount {
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.transaction-amount.receita {
+  color: #4caf50;
+}
+
+.transaction-amount.despesa {
+  color: #f44336;
+}
+
+.transaction-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: 15px;
+}
+

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Financeiro - Marcha</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="financeiro.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <span class="title">Financeiro</span>
+  </header>
+
+  <main>
+    <div class="page-header">
+      <h1>Gestão Financeira</h1>
+      <div class="header-actions">
+        <button class="btn-secondary" onclick="openNewTransaction('receita')">+ Receita</button>
+        <button class="btn-secondary btn-expense" onclick="openNewTransaction('despesa')">+ Despesa</button>
+      </div>
+    </div>
+
+    <section class="card summary-section">
+      <h2>Resumo Financeiro</h2>
+      <div class="summary-grid" id="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">Total Receitas</div>
+          <div class="summary-value positive" id="total-receitas">R$ 0,00</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Total Despesas</div>
+          <div class="summary-value negative" id="total-despesas">R$ 0,00</div>
+        </div>
+        <div class="summary-card highlight">
+          <div class="summary-label">Saldo</div>
+          <div class="summary-value" id="saldo">R$ 0,00</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Recebido</div>
+          <div class="summary-value positive" id="recebido">R$ 0,00</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Pago</div>
+          <div class="summary-value negative" id="pago">R$ 0,00</div>
+        </div>
+        <div class="summary-card highlight">
+          <div class="summary-label">Saldo Real</div>
+          <div class="summary-value" id="saldo-real">R$ 0,00</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card filters-section">
+      <div class="filters">
+        <select id="filter-type" onchange="loadTransactions()">
+          <option value="">Todos os tipos</option>
+          <option value="receita">Receitas</option>
+          <option value="despesa">Despesas</option>
+        </select>
+        <input type="date" id="filter-start-date" onchange="loadTransactions()">
+        <input type="date" id="filter-end-date" onchange="loadTransactions()">
+        <button class="btn-secondary" onclick="loadTransactions()">Filtrar</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="transactions-list-container">
+        <ul id="transactions-list">
+          <li>Carregando transações...</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Nova/Editar Transação -->
+  <div id="modal-transaction" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="modal-transaction-title">Nova Transação</h3>
+      <form id="form-transaction">
+        <input type="hidden" id="transaction-id" name="id">
+        <input type="hidden" id="transaction-type" name="type">
+        
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="transaction-type-select" name="type" required>
+            <option value="receita">Receita</option>
+            <option value="despesa">Despesa</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Descrição *</label>
+          <input type="text" id="transaction-description" name="description" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Categoria</label>
+            <select id="transaction-category" name="category">
+              <option value="">Selecione...</option>
+              <option value="mensalidade">Mensalidade</option>
+              <option value="consulta">Consulta</option>
+              <option value="avaliacao">Avaliação</option>
+              <option value="material">Material</option>
+              <option value="aluguel">Aluguel</option>
+              <option value="salario">Salário</option>
+              <option value="outros">Outros</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Valor (R$) *</label>
+            <input type="number" id="transaction-amount" name="amount" step="0.01" min="0.01" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Data de Vencimento</label>
+            <input type="date" id="transaction-due_date" name="due_date">
+          </div>
+          <div class="form-group">
+            <label>Data de Pagamento</label>
+            <input type="date" id="transaction-payment_date" name="payment_date">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Forma de Pagamento</label>
+          <select id="transaction-payment_method" name="payment_method">
+            <option value="">Selecione...</option>
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">PIX</option>
+            <option value="cartao_credito">Cartão de Crédito</option>
+            <option value="cartao_debito">Cartão de Débito</option>
+            <option value="transferencia">Transferência</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Paciente (opcional)</label>
+          <select id="transaction-patient_id" name="patient_id">
+            <option value="">Nenhum</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="transaction-notes" name="notes" rows="2"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Salvar</button>
+          <button type="button" class="btn-secondary" onclick="closeTransactionModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="financeiro.js"></script>
+</body>
+</html>
+
+
+
