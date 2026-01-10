@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS patients (
   health_insurance_number TEXT,
   notes TEXT,
   active INTEGER DEFAULT 1,
+  type TEXT DEFAULT 'Paciente', -- 'Cliente', 'Aluno', 'Paciente'
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME
 );

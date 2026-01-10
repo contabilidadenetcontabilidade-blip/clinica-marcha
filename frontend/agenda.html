@@ -1,15 +1,33 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <title>Agenda - Marcha</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="agenda.css">
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || (user.role !== 'admin' && user.role !== 'fisio')) {
+      window.location.href = 'login.html';
+    }
+  </script>
 </head>
+
 <body>
   <header class="topbar">
-    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
-    <span class="title">Agenda</span>
+    <a href="index.html" class="brand">
+      <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
+      <span class="title">Clínica Marcha</span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html" class="nav-item">🏠 <span>Início</span></a>
+      <a href="agenda.html" class="nav-item active">📅 <span>Agenda</span></a>
+      <a href="pacientes.html" class="nav-item">👥 <span>Clientes & Alunos</span></a>
+      <a href="financeiro.html" class="nav-item">💰 <span>Financeiro</span></a>
+      <a href="profissionais.html" class="nav-item">🥼 <span>Profissionais</span></a>
+      <a href="#" onclick="logout()" class="nav-item" style="color: #f44336;">🚪 <span>Sair</span></a>
+    </nav>
   </header>
 
   <main>
@@ -40,7 +58,7 @@
       <h3 id="modal-appointment-title">Novo Agendamento</h3>
       <form id="form-appointment">
         <input type="hidden" id="appointment-id" name="id">
-        
+
         <div class="form-group">
           <label>Paciente *</label>
           <select id="appointment-patient_id" name="patient_id" required></select>
@@ -55,6 +73,11 @@
           <div class="form-group">
             <label>Data *</label>
             <input type="date" id="appointment-date" name="appointment_date" required>
+            <div style="margin-top: 5px; display: flex; align-items: center; gap: 5px;">
+              <input type="checkbox" id="appointment-recurring" name="is_recurring">
+              <label for="appointment-recurring" style="font-size: 0.9em; margin: 0; cursor: pointer;">Repetir por 4
+                Semanas</label>
+            </div>
           </div>
           <div class="form-group">
             <label>Horário Início *</label>
@@ -70,11 +93,12 @@
           <div class="form-group">
             <label>Tipo de Serviço</label>
             <select id="appointment-service_type" name="service_type">
-              <option value="Fisioterapia">Fisioterapia</option>
               <option value="Pilates">Pilates</option>
+              <option value="Liberação Miofascial">Liberação Miofascial</option>
+              <option value="Condicionamento Físico">Condicionamento Físico</option>
+              <option value="Yoga">Yoga</option>
+              <option value="Fisioterapia">Fisioterapia</option>
               <option value="Avaliação">Avaliação</option>
-              <option value="Retorno">Retorno</option>
-              <option value="Consulta">Consulta</option>
             </select>
           </div>
           <div class="form-group">
@@ -89,6 +113,17 @@
               <option value="realizado">Realizado</option>
               <option value="cancelado">Cancelado</option>
               <option value="falta">Falta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Pagamento</label>
+            <select id="appointment-payment_method" name="payment_method">
+              <option value="">Padrão (Pendente)</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="pix">PIX</option>
+              <option value="cartao_credito">Cartão de Crédito</option>
+              <option value="cartao_debito">Cartão de Débito</option>
+              <option value="gympass">Gympass</option>
             </select>
           </div>
         </div>
@@ -111,10 +146,41 @@
     </div>
   </div>
 
+  <!-- Modal Confirmar Presença -->
+  <div id="modal-confirm-presence" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Confirmar Presença</h3>
+        <button class="btn-close-modal" onclick="closeConfirmModal()">&times;</button>
+      </div>
+      <p>Confirme os dados financeiros desta aula:</p>
+      <form id="form-confirm-presence">
+        <input type="hidden" id="confirm-appt-id">
+        <div class="form-group">
+          <label>Valor Pago (R$)</label>
+          <input type="number" id="confirm-amount" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Forma de Pagamento</label>
+          <select id="confirm-payment-method">
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">PIX</option>
+            <option value="cartao_credito">Cartão de Crédito</option>
+            <option value="cartao_debito">Cartão de Débito</option>
+            <option value="gympass">Gympass</option>
+            <option value="transferencia">Transferência</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Confirmar e Pontuar 🏆</button>
+          <button type="button" class="btn-secondary" onclick="closeConfirmModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="utils.js"></script>
   <script src="agenda.js"></script>
 </body>
+
 </html>
-
-
-

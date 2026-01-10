@@ -1,26 +1,43 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <title>Pacientes - Marcha</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="pacientes.css">
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || (user.role !== 'admin' && user.role !== 'fisio')) {
+      window.location.href = 'login.html';
+    }
+  </script>
 </head>
+
 <body>
   <header class="topbar">
-    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
-    <span class="title">Pacientes</span>
+    <a href="index.html" class="brand">
+      <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
+      <span class="title">Clínica Marcha</span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html" class="nav-item">🏠 <span>Início</span></a>
+      <a href="agenda.html" class="nav-item">📅 <span>Agenda</span></a>
+      <a href="pacientes.html" class="nav-item active">👥 <span>Clientes & Alunos</span></a>
+      <a href="financeiro.html" class="nav-item">💰 <span>Financeiro</span></a>
+      <a href="profissionais.html" class="nav-item">🥼 <span>Profissionais</span></a>
+      <a href="#" onclick="logout()" class="nav-item" style="color: #f44336;">🚪 <span>Sair</span></a>
+    </nav>
   </header>
 
   <main>
     <div class="page-header">
-      <h1>Cadastro de Pacientes</h1>
-      <button class="btn-primary" onclick="openNewPatient()">+ Novo Paciente</button>
+      <h1>Clientes & Alunos</h1>
+      <button class="btn-primary" onclick="openNewPatient()">+ Novo Cadastro</button>
     </div>
 
     <section class="card search-section">
-      <input type="text" id="search-input" placeholder="Buscar por nome, CPF ou telefone..." 
-             onkeyup="searchPatients()">
+      <input type="text" id="search-input" placeholder="Buscar por nome, CPF ou telefone..." onkeyup="searchPatients()">
       <label class="filter-active">
         <input type="checkbox" id="filter-active" checked onchange="loadPatients()">
         Mostrar apenas ativos
@@ -30,7 +47,7 @@
     <section class="card">
       <div id="patients-list-container">
         <ul id="patients-list">
-          <li>Carregando pacientes...</li>
+          <li>Carregando...</li>
         </ul>
       </div>
     </section>
@@ -39,12 +56,37 @@
   <!-- Modal Novo/Editar Paciente -->
   <div id="modal-patient" class="modal hidden">
     <div class="modal-content modal-large">
-      <h3 id="modal-patient-title">Novo Paciente</h3>
+      <div class="modal-header">
+        <h3 id="modal-patient-title" class="modal-title">Novo Cadastro - Clínica Marcha</h3>
+        <button class="btn-close-modal" onclick="closePatientModal()">&times;</button>
+      </div>
       <form id="form-patient">
         <input type="hidden" id="patient-id" name="id">
-        
+
+        <div class="form-row">
+          <div class="form-group" style="text-align: center;">
+            <div class="photo-preview-container" style="margin-bottom: 10px;">
+              <img id="patient-photo-preview" src="../assets/default-user.png" alt="Foto"
+                style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 2px solid #ddd;">
+            </div>
+            <label class="btn-secondary btn-sm" style="cursor: pointer; display: inline-block;">
+              📷 Escolher Foto
+              <input type="file" id="patient-photo" name="photo" accept="image/*" style="display: none;"
+                onchange="previewPhoto(this)">
+            </label>
+          </div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
+            <label>Tipo de Pessoa *</label>
+            <select id="patient-type" name="type" required>
+              <option value="Cliente">Cliente</option>
+              <option value="Aluno">Aluno</option>
+              <option value="Paciente">Paciente</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 2;">
             <label>Nome Completo *</label>
             <input type="text" id="patient-name" name="name" required>
           </div>
@@ -130,7 +172,5 @@
   <script src="utils.js"></script>
   <script src="pacientes.js"></script>
 </body>
+
 </html>
-
-
-

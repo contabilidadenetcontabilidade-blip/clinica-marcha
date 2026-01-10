@@ -1,15 +1,32 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <title>Financeiro - Marcha</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="financeiro.css">
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || user.role !== 'admin') {
+      window.location.href = 'login.html';
+    }
+  </script>
 </head>
+
 <body>
   <header class="topbar">
-    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
-    <span class="title">Financeiro</span>
+    <a href="index.html" class="brand">
+      <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
+      <span class="title">Clínica Marcha</span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html" class="nav-item">🏠 <span>Início</span></a>
+      <a href="agenda.html" class="nav-item">📅 <span>Agenda</span></a>
+      <a href="pacientes.html" class="nav-item">👥 <span>Clientes & Alunos</span></a>
+      <a href="financeiro.html" class="nav-item active">💰 <span>Financeiro</span></a>
+      <a href="#" onclick="logout()" class="nav-item" style="color: #f44336;">🚪 <span>Sair</span></a>
+    </nav>
   </header>
 
   <main>
@@ -22,31 +39,25 @@
     </div>
 
     <section class="card summary-section">
-      <h2>Resumo Financeiro</h2>
-      <div class="summary-grid" id="summary-grid">
-        <div class="summary-card">
-          <div class="summary-label">Total Receitas</div>
-          <div class="summary-value positive" id="total-receitas">R$ 0,00</div>
+      <h2>Resumo Financeiro (Mês Atual)</h2>
+      <div class="summary-grid" id="summary-grid" style="grid-template-columns: repeat(3, 1fr) !important;">
+        <!-- Card 1: Total Recebido -->
+        <div class="summary-card" style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);">
+          <div class="summary-label" style="color: #2E7D32;">Total Recebido</div>
+          <div class="summary-value positive" id="total-recebido" style="color: #1B5E20; font-size: 1.8rem;">R$ 0,00
+          </div>
         </div>
-        <div class="summary-card">
-          <div class="summary-label">Total Despesas</div>
-          <div class="summary-value negative" id="total-despesas">R$ 0,00</div>
+
+        <!-- Card 2: Total Pendente -->
+        <div class="summary-card" style="background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);">
+          <div class="summary-label" style="color: #EF6C00;">Total Pendente</div>
+          <div class="summary-value" id="total-pendente" style="color: #E65100; font-size: 1.8rem;">R$ 0,00</div>
         </div>
-        <div class="summary-card highlight">
-          <div class="summary-label">Saldo</div>
-          <div class="summary-value" id="saldo">R$ 0,00</div>
-        </div>
-        <div class="summary-card">
-          <div class="summary-label">Recebido</div>
-          <div class="summary-value positive" id="recebido">R$ 0,00</div>
-        </div>
-        <div class="summary-card">
-          <div class="summary-label">Pago</div>
-          <div class="summary-value negative" id="pago">R$ 0,00</div>
-        </div>
-        <div class="summary-card highlight">
-          <div class="summary-label">Saldo Real</div>
-          <div class="summary-value" id="saldo-real">R$ 0,00</div>
+
+        <!-- Card 3: Saldo Esperado -->
+        <div class="summary-card highlight" style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);">
+          <div class="summary-label" style="color: #1565C0;">Saldo Total Esperado</div>
+          <div class="summary-value" id="saldo-esperado" style="color: #0D47A1; font-size: 1.8rem;">R$ 0,00</div>
         </div>
       </div>
     </section>
@@ -61,6 +72,7 @@
         <input type="date" id="filter-start-date" onchange="loadTransactions()">
         <input type="date" id="filter-end-date" onchange="loadTransactions()">
         <button class="btn-secondary" onclick="loadTransactions()">Filtrar</button>
+        <button class="btn-secondary" onclick="exportFinancialReportPDF()">📄 Gerar Relatório PDF</button>
       </div>
     </section>
 
@@ -76,11 +88,14 @@
   <!-- Modal Nova/Editar Transação -->
   <div id="modal-transaction" class="modal hidden">
     <div class="modal-content">
-      <h3 id="modal-transaction-title">Nova Transação</h3>
+      <div class="modal-header">
+        <h3 id="modal-transaction-title" class="modal-title">Nova Transação - Clínica Marcha</h3>
+        <button class="btn-close-modal" onclick="closeTransactionModal()">&times;</button>
+      </div>
       <form id="form-transaction">
         <input type="hidden" id="transaction-id" name="id">
         <input type="hidden" id="transaction-type" name="type">
-        
+
         <div class="form-group">
           <label>Tipo</label>
           <select id="transaction-type-select" name="type" required>
@@ -134,6 +149,7 @@
             <option value="cartao_credito">Cartão de Crédito</option>
             <option value="cartao_debito">Cartão de Débito</option>
             <option value="transferencia">Transferência</option>
+            <option value="gympass">Gympass</option>
           </select>
         </div>
 
@@ -157,10 +173,13 @@
     </div>
   </div>
 
-  <script src="utils.js"></script>
-  <script src="financeiro.js"></script>
+  <!-- Adicionar jsPDF e autoTable via CDN -->
+  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script src="utils.js?v=1.2"></script>
+  <script src="financeiro.js?v=1.5"></script>
 </body>
+
 </html>
-
-
-

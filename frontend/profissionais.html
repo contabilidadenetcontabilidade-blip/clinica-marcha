@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Profissionais - Marcha</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="pacientes.css"> <!-- Reuse styles -->
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'admin') {
+            alert('Acesso negado');
+            window.location.href = 'index.html';
+        }
+    </script>
+</head>
+
+<body>
+    <header class="topbar">
+        <a href="index.html" class="brand">
+            <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
+            <span class="title">Gestão de Profissionais</span>
+        </a>
+        <nav class="nav-links">
+            <a href="index.html" class="nav-item">🏠 <span>Início</span></a>
+            <a href="pacientes.html" class="nav-item">👥 <span>Clientes</span></a>
+            <a href="#" class="nav-item active">🥼 <span>Profissionais</span></a>
+            <a href="#" onclick="logout()" class="nav-item" style="color: #f44336;">🚪 <span>Sair</span></a>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div class="header-action">
+            <h2>Equipe de Fisioterapia</h2>
+            <button class="btn-primary" onclick="openNewProfessional()">+ Novo Profissional</button>
+        </div>
+
+        <ul id="professionals-list" class="patient-list">
+            <!-- List -->
+        </ul>
+    </main>
+
+    <!-- Modal -->
+    <div id="modal-professional" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Novo Profissional</h3>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <form id="form-professional">
+                <input type="hidden" name="id" id="prof-id">
+                <input type="hidden" name="role" value="fisio">
+                <input type="hidden" name="type" value="Fisioterapeuta">
+
+                <div class="form-group">
+                    <label>Nome Completo *</label>
+                    <input type="text" name="name" id="prof-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Email (Login) *</label>
+                    <input type="email" name="email" id="prof-email" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Senha *</label>
+                    <input type="password" name="password" id="prof-password" placeholder="Definar senha de acesso">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="utils.js?v=1.2"></script>
+    <script src="profissionais.js?v=1.3"></script>
+</body>
+
+</html>

@@ -134,3 +134,5 @@
   color: #666;
 }
 
+
+.btn-icon-wa { background: #25D366; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; color: white; margin-left:8px; } .btn-mini-confirm { background: white; border: 1px solid green; border-radius: 4px; padding: 2px 5px; cursor: pointer; color: green; margin-left: 5px; } .btn-mini-confirm:hover { background: green; color: white; }

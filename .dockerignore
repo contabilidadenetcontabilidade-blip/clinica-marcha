@@ -1,0 +1,9 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+local_db.sqlite
+marcha.db
+backend/node_modules
+backend/marcha.db

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Portal do Aluno - Marcha</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="cup.css"> <!-- Reuse some styles -->
+    <link rel="stylesheet" href="portal_aluno.css">
+</head>
+
+<body>
+    <header class="topbar">
+        <a href="#" class="brand">
+            <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
+            <span class="title">Portal do Aluno</span>
+        </a>
+        <nav class="nav-links">
+            <span id="user-display" style="color: white; margin-right: 15px; font-weight: 500;"></span>
+            <button onclick="logout()" class="btn-secondary btn-sm"
+                style="border: 1px solid white; background: transparent; color: white;">Sair</button>
+        </nav>
+    </header>
+
+    <main>
+        <div class="page-header">
+            <h1 id="welcome-msg">Olá, Aluno!</h1>
+            <p>Acompanhe seu desempenho na Marcha Cup 🏆</p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="dashboard-grid">
+
+            <!-- My House Card -->
+            <div class="card my-house-card" id="house-card">
+                <div class="loading">Carregando dados da casa...</div>
+            </div>
+
+            <!-- Ranking Chart -->
+            <div class="card chart-card">
+                <h3>Ranking Geral 📊</h3>
+                <div class="chart-container">
+                    <canvas id="rankingChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Recent History -->
+        <section class="card" style="margin-top: 20px;">
+            <h3>Minhas Conquistas Recentes</h3>
+            <ul id="score-history" class="score-list">
+                <li>Carregando histórico...</li>
+            </ul>
+        </section>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="portal_aluno.js"></script>
+</body>
+
+</html>

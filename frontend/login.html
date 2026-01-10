@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Clínica Marcha</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Reset & Base */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            background: #121212;
+            /* Dark background */
+            color: #fff;
+            overflow: hidden;
+        }
+
+        /* Layout: Split Screen */
+        .split-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Left: Carousel (Reels) */
+        .carousel-section {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .carousel-wrapper {
+            position: relative;
+            width: 350px;
+            /* Reel aspect ratio ish */
+            height: 620px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border: 2px solid #333;
+        }
+
+        .reel-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+            /* Hidden by default */
+            background: #000;
+        }
+
+        .reel-frame.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        /* Carousel Controls (optional or auto) */
+        .carousel-indicators {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .indicator {
+            width: 10px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .indicator.active {
+            background: var(--gold);
+        }
+
+        /* Right: Login Form (Glassmorphism) */
+        .login-section {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
+            position: relative;
+        }
+
+        /* Decorative circles */
+        .glass-decor {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+        }
+
+        .decor-1 {
+            width: 300px;
+            height: 300px;
+            background: var(--gold);
+            top: 10%;
+            right: 10%;
+        }
+
+        .decor-2 {
+            width: 400px;
+            height: 400px;
+            background: var(--navy);
+            bottom: 10%;
+            left: 10%;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 50px;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 420px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            z-index: 2;
+            text-align: center;
+        }
+
+        .login-logo {
+            width: 100px;
+            margin-bottom: 30px;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ccc;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            border-color: var(--gold);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(90deg, var(--gold) 0%, #e6be00 100%);
+            color: var(--navy);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 215, 0, 0.2);
+        }
+
+        .error-msg {
+            color: #ff6b6b;
+            margin-top: 15px;
+            font-size: 0.9em;
+            min-height: 20px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .split-container {
+                flex-direction: column-reverse;
+            }
+
+            .carousel-section {
+                display: none;
+                /* Hide carousel on mobile to focus on login */
+            }
+
+            .login-section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="split-container">
+
+        <!-- Left: Carousel -->
+        <div class="carousel-section">
+            <div class="carousel-wrapper">
+                <!-- Using embed links for Reels -->
+                <iframe class="reel-frame active" src="https://www.instagram.com/p/DTISt6WET4g/embed"
+                    scrolling="no"></iframe>
+                <iframe class="reel-frame" src="https://www.instagram.com/reel/DSaE1CnEZnI/embed"
+                    scrolling="no"></iframe>
+                <iframe class="reel-frame" src="https://www.instagram.com/reel/DSXqNd6kbSn/embed"
+                    scrolling="no"></iframe>
+            </div>
+
+            <div class="carousel-indicators">
+                <span class="indicator active" onclick="showReel(0)"></span>
+                <span class="indicator" onclick="showReel(1)"></span>
+                <span class="indicator" onclick="showReel(2)"></span>
+            </div>
+        </div>
+
+        <!-- Right: Login Form -->
+        <div class="login-section">
+            <!-- Decor -->
+            <div class="glass-decor decor-1"></div>
+            <div class="glass-decor decor-2"></div>
+
+            <div class="login-card">
+                <img src="../assets/logo_marcha.png" alt="Marcha Logo" class="login-logo">
+                <h2 style="color: white; margin-bottom: 10px;">Bem-vindo</h2>
+                <p style="color: #888; margin-bottom: 30px; font-size: 0.9em;">Acesse sua conta para continuar</p>
+
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Login</label>
+                        <input type="text" id="username" placeholder="Usuário, Email ou CPF (apenas números)" required
+                            autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Senha</label>
+                        <input type="password" id="password" placeholder="Digite sua senha" required>
+                    </div>
+                    <button type="submit" class="btn-login">ACESSAR</button>
+                    <div id="error-msg" class="error-msg"></div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="login.js"></script>
+    <script>
+        // Carousel Logic
+        let currentReel = 0;
+        const reels = document.querySelectorAll('.reel-frame');
+        const indicators = document.querySelectorAll('.indicator');
+        const totalReels = reels.length;
+
+        function showReel(index) {
+            if (index >= totalReels) index = 0;
+            if (index < 0) index = totalReels - 1;
+
+            reels.forEach(r => r.classList.remove('active'));
+            indicators.forEach(i => i.classList.remove('active'));
+
+            reels[index].classList.add('active');
+            indicators[index].classList.add('active');
+            currentReel = index;
+        }
+
+        // Auto rotate every 15 seconds (Reels are short loops usually)
+        // Or just let user switch. Auto rotate might interrupt video watching.
+        // Let's autoswitch slowly or just leave it manual + slow auto.
+        setInterval(() => {
+            showReel(currentReel + 1);
+        }, 15000);
+
+    </script>
+</body>
+
+</html>

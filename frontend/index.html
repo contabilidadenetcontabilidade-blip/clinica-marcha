@@ -1,77 +1,105 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <title>Marcha Reabilitação e Perícia</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || (user.role !== 'admin' && user.role !== 'fisio')) {
+      window.location.href = 'login.html';
+    }
+  </script>
 </head>
+
 <body>
 
-    <header class="topbar">
-        <div class="top-left">
-          <img src="../assets/logo_marcha.png" alt="Logo Marcha" class="logo">
-          <span class="title"> Marcha Reabilitação e Perícia</span>
-        </div>
-      </header>
-      
-  <main>
+  <header class="topbar">
+    <a href="index.html" class="brand">
+      <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
+      <span class="title">Clínica Marcha</span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html" class="nav-item active">🏠 <span>Início</span></a>
+      <a href="agenda.html" class="nav-item">📅 <span>Agenda</span></a>
+      <a href="pacientes.html" class="nav-item">👥 <span>Clientes & Alunos</span></a>
+      <a href="financeiro.html" class="nav-item">💰 <span>Financeiro</span></a>
+      <a href="profissionais.html" class="nav-item">🥼 <span>Profissionais</span></a>
+      <a href="#" onclick="logout()" class="nav-item" style="color: #f44336;">🚪 <span>Sair</span></a>
+    </nav>
+  </header>
 
-    <section class="card agenda">
-      <h2>📅 Agenda de Hoje</h2>
-      <ul id="agenda-list" style="list-style: none; padding: 0;"></ul>
-    </section>
+  <main class="dashboard-container">
+    <div class="page-header">
+      <h1>Dashboard Executivo</h1>
+      <p style="color: #666;">Visão geral da Clínica Marcha</p>
+    </div>
 
-    <section class="card financeiro">
-      <h2>💰 Financeiro do Dia</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
-        <div style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); padding: 16px; border-radius: 12px;">
-          <div style="font-size: 0.9rem; color: #2E7D32; margin-bottom: 8px; font-weight: 600;">Previsto</div>
-          <div style="font-size: 1.5rem; font-weight: 700; color: #1B5E20;" id="previsto-display">R$ 0,00</div>
-        </div>
-        <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); padding: 16px; border-radius: 12px;">
-          <div style="font-size: 0.9rem; color: #1565C0; margin-bottom: 8px; font-weight: 600;">Recebido</div>
-          <div style="font-size: 1.5rem; font-weight: 700; color: #0D47A1;" id="recebido-display">R$ 0,00</div>
+    <!-- 1. Summary Cards -->
+    <div class="summary-cards">
+      <div class="card summary-card-dashboard">
+        <div class="icon-bg">💰</div>
+        <div>
+          <h3>Faturamento (Mês)</h3>
+          <p class="value" id="dashboard-total-revenue">R$ 0,00</p>
+          <span class="subtext">Receitas confirmadas</span>
         </div>
       </div>
-    </section>
+      <div class="card summary-card-dashboard">
+        <div class="icon-bg">👥</div>
+        <div>
+          <h3>Clientes Ativos</h3>
+          <p class="value" id="dashboard-active-patients">0</p>
+          <span class="subtext">Cadastrados e ativos</span>
+        </div>
+      </div>
+      <div class="card summary-card-dashboard">
+        <div class="icon-bg">🏆</div>
+        <div>
+          <h3>Líder Marcha Cup</h3>
+          <p class="value" id="dashboard-cup-leader">-</p>
+          <span class="subtext">Casa em 1º lugar</span>
+        </div>
+      </div>
+    </div>
 
-    <button id="btn-cup" class="cup-btn">
-      🏆 Marcha Cup
-    </button>
+    <!-- 2. Charts & Ranking Grid -->
+    <div class="dashboard-grid">
+      <!-- Finance Pie Chart -->
+      <div class="card chart-card">
+        <h3>Receitas vs. Despesas</h3>
+        <div class="chart-container">
+          <canvas id="financePieChart"></canvas>
+        </div>
+      </div>
 
-    <section class="card prazos">
-      <h2>⏰ Prazos Urgentes</h2>
-      <ul>
-        <li style="padding: 12px; background: var(--light-gray); border-radius: 8px; color: #666;">Nenhum prazo próximo 🎯</li>
-      </ul>
-    </section>
+      <!-- Appointments Bar Chart -->
+      <div class="card chart-card">
+        <h3>Atendimentos por Modalidade</h3>
+        <div class="chart-container">
+          <canvas id="appointmentsBarChart"></canvas>
+        </div>
+      </div>
 
-    <nav class="menu">
-        <button onclick="window.location.href='agenda.html'" title="Agenda">
-          <span style="font-size: 1.3rem;">🏋️‍♀️</span>
-          <span>Agenda</span>
-        </button>
-        <button onclick="window.location.href='pacientes.html'" title="Pacientes">
-          <span style="font-size: 1.3rem;">🧍</span>
-          <span>Pacientes</span>
-        </button>
-        <button onclick="window.location.href='financeiro.html'" title="Financeiro">
-          <span style="font-size: 1.3rem;">💰</span>
-          <span>Financeiro</span>
-        </button>
-        <button onclick="window.location.href='cup.html'" title="Marcha Cup">
-          <span style="font-size: 1.3rem;">🏆</span>
-          <span>Cup</span>
-        </button>
-        <button title="Configurações">
-          <span style="font-size: 1.3rem;">⚙️</span>
-          <span>Config</span>
-        </button>
-      </nav>
-      
+      <!-- Ranking (Existing Logic) -->
+      <div class="card ranking-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3 style="margin:0;">🏆 Ranking Atual</h3>
+          <button onclick="window.location.href='cup.html'" class="btn-secondary btn-sm">Ver Detalhes</button>
+        </div>
+        <div id="ranking-container" class="ranking-list">
+          <div style="text-align: center; color: #666;">Carregando ranking...</div>
+        </div>
+        <!-- Hidden button needed for logic? Logic probably targets #ranking-container -->
+      </div>
+    </div>
 
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="utils.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>

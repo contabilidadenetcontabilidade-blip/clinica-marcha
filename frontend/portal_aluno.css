@@ -1,0 +1,81 @@
+/* Portal Styles */
+
+.my-house-card {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    /* Will be overridden by house color lightly */
+    min-height: 250px;
+}
+
+.house-crest-large {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+.house-name {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: var(--navy);
+}
+
+.my-points {
+    font-size: 2.5em;
+    font-weight: 800;
+    color: var(--gold);
+}
+
+.points-label {
+    font-size: 0.9em;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.score-list {
+    list-style: none;
+    padding: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.score-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.score-item:last-child {
+    border-bottom: none;
+}
+
+.score-rule {
+    font-weight: 500;
+    color: #333;
+}
+
+.score-value {
+    font-weight: bold;
+    color: var(--navy);
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}

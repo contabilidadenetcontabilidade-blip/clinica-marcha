@@ -13,7 +13,7 @@ function showError(message) {
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 5000);
-  
+
   // Remove toast antigo se existir
   const existingToasts = document.querySelectorAll('.toast');
   if (existingToasts.length > 1) {
@@ -27,7 +27,7 @@ function showSuccess(message) {
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
-  
+
   // Remove toast antigo se existir
   const existingToasts = document.querySelectorAll('.toast');
   if (existingToasts.length > 1) {
@@ -84,6 +84,24 @@ if (!document.getElementById('toast-styles')) {
   `;
   document.head.appendChild(style);
 }
+
+function logout() {
+  localStorage.removeItem('user');
+  window.location.href = 'login.html';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (user && user.role === 'fisio') {
+    // Hide Financeiro link
+    const finLinks = document.querySelectorAll('a[href="financeiro.html"]');
+    finLinks.forEach(link => link.style.display = 'none');
+
+    // Hide Professionals link (if any link points to it, though usually manual)
+    const profLinks = document.querySelectorAll('a[href="profissionais.html"]');
+    profLinks.forEach(link => link.style.display = 'none');
+  }
+});
 
 
 

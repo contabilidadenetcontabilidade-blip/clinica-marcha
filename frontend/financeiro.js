@@ -5,18 +5,18 @@ async function loadSummary() {
   try {
     const startDate = document.getElementById('filter-start-date')?.value || '';
     const endDate = document.getElementById('filter-end-date')?.value || '';
-    
+
     let url = '/api/financial/summary';
     if (startDate && endDate) {
       url += `?start_date=${startDate}&end_date=${endDate}`;
     }
-    
+
     const res = await fetch(url);
     if (!res.ok) {
       console.error('Erro ao carregar resumo');
       return;
     }
-    
+
     currentSummary = await res.json();
     renderSummary();
   } catch (err) {
@@ -26,24 +26,19 @@ async function loadSummary() {
 
 function renderSummary() {
   if (!currentSummary) return;
-  
-  document.getElementById('total-receitas').textContent = 
-    formatCurrency(currentSummary.receitas.total);
-  document.getElementById('total-despesas').textContent = 
-    formatCurrency(currentSummary.despesas.total);
-  document.getElementById('saldo').textContent = 
-    formatCurrency(currentSummary.balance);
-  document.getElementById('recebido').textContent = 
+
+  // Total Recebido = Receitas Pagas
+  document.getElementById('total-recebido').textContent =
     formatCurrency(currentSummary.receitas.paid);
-  document.getElementById('pago').textContent = 
-    formatCurrency(currentSummary.despesas.paid);
-  document.getElementById('saldo-real').textContent = 
-    formatCurrency(currentSummary.paid_balance);
-  
-  const saldoEl = document.getElementById('saldo');
-  const saldoRealEl = document.getElementById('saldo-real');
-  saldoEl.className = currentSummary.balance >= 0 ? 'summary-value positive' : 'summary-value negative';
-  saldoRealEl.className = currentSummary.paid_balance >= 0 ? 'summary-value positive' : 'summary-value negative';
+
+  // Total Pendente = Receitas Totais - Receitas Pagas
+  const pending = currentSummary.receitas.total - currentSummary.receitas.paid;
+  document.getElementById('total-pendente').textContent =
+    formatCurrency(pending);
+
+  // Saldo Esperado = Receitas Totais - Despesas Totais (Balance)
+  document.getElementById('saldo-esperado').textContent =
+    formatCurrency(currentSummary.balance);
 }
 
 function formatCurrency(value) {
@@ -53,25 +48,25 @@ function formatCurrency(value) {
 async function loadTransactions() {
   try {
     showLoading('transactions-list', 'Carregando transações...');
-    
+
     const type = document.getElementById('filter-type')?.value || '';
     const startDate = document.getElementById('filter-start-date')?.value || '';
     const endDate = document.getElementById('filter-end-date')?.value || '';
-    
+
     let url = '/api/financial?';
     const params = new URLSearchParams();
     if (type) params.append('type', type);
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
     if (params.toString()) url += params.toString();
-    
+
     const res = await fetch(url);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       showError('Erro ao carregar transações: ' + (errorData.error || res.status));
       return;
     }
-    
+
     currentTransactions = await res.json();
     renderTransactions();
     loadSummary();
@@ -84,26 +79,26 @@ async function loadTransactions() {
 function renderTransactions() {
   const list = document.getElementById('transactions-list');
   list.innerHTML = '';
-  
+
   if (!currentTransactions.length) {
     list.innerHTML = '<li class="empty-state">Nenhuma transação encontrada</li>';
     return;
   }
-  
+
   currentTransactions.forEach(transaction => {
     const li = document.createElement('li');
     li.className = `transaction-item ${transaction.type}`;
-    
+
     const info = document.createElement('div');
     info.className = 'transaction-info';
-    
+
     const desc = document.createElement('div');
     desc.className = 'transaction-description';
     desc.textContent = transaction.description;
-    
+
     const details = document.createElement('div');
     details.className = 'transaction-details';
-    
+
     if (transaction.category) {
       const catSpan = document.createElement('span');
       catSpan.textContent = `📁 ${transaction.category}`;
@@ -111,7 +106,7 @@ function renderTransactions() {
     }
     if (transaction.patient_name) {
       const patientSpan = document.createElement('span');
-      patientSpan.textContent = `👤 ${transaction.patient_name}`;
+      patientSpan.textContent = `👤 ${transaction.patient_name}`; // Backend will be updated to include type if needed, or we just show name.
       details.appendChild(patientSpan);
     }
     if (transaction.due_date) {
@@ -125,18 +120,18 @@ function renderTransactions() {
       paidSpan.style.color = '#4caf50';
       details.appendChild(paidSpan);
     }
-    
+
     info.appendChild(desc);
     info.appendChild(details);
-    
+
     const amount = document.createElement('div');
     amount.className = `transaction-amount ${transaction.type}`;
     amount.textContent = formatCurrency(transaction.amount);
-    
+
     li.appendChild(info);
     li.appendChild(amount);
     li.onclick = () => editTransaction(transaction.id);
-    
+
     list.appendChild(li);
   });
 }
@@ -157,7 +152,7 @@ async function loadPatientsForSelect() {
     patients.forEach(p => {
       const option = document.createElement('option');
       option.value = p.id;
-      option.textContent = p.name;
+      option.textContent = `${p.name} (${p.type || 'Pessoa'})`;
       select.appendChild(option);
     });
   } catch (err) {
@@ -166,17 +161,17 @@ async function loadPatientsForSelect() {
 }
 
 function openNewTransaction(type) {
-  document.getElementById('modal-transaction-title').textContent = 
-    type === 'receita' ? 'Nova Receita' : 'Nova Despesa';
+  document.getElementById('modal-transaction-title').textContent =
+    type === 'receita' ? 'Nova Receita - Clínica Marcha' : 'Nova Despesa - Clínica Marcha';
   document.getElementById('form-transaction').reset();
   document.getElementById('transaction-id').value = '';
   document.getElementById('transaction-type-select').value = type;
   document.getElementById('transaction-type').value = type;
   loadPatientsForSelect();
-  
+
   // Set today as default due date
   document.getElementById('transaction-due_date').value = new Date().toISOString().split('T')[0];
-  
+
   document.getElementById('modal-transaction').classList.remove('hidden');
 }
 
@@ -190,7 +185,7 @@ function editTransaction(id) {
     showError('Transação não encontrada');
     return;
   }
-  
+
   document.getElementById('modal-transaction-title').textContent = 'Editar Transação';
   document.getElementById('transaction-id').value = transaction.id;
   document.getElementById('transaction-type-select').value = transaction.type;
@@ -202,12 +197,12 @@ function editTransaction(id) {
   document.getElementById('transaction-payment_date').value = transaction.payment_date || '';
   document.getElementById('transaction-payment_method').value = transaction.payment_method || '';
   document.getElementById('transaction-notes').value = transaction.notes || '';
-  
+
   loadPatientsForSelect();
   setTimeout(() => {
     document.getElementById('transaction-patient_id').value = transaction.patient_id || '';
   }, 100);
-  
+
   document.getElementById('modal-transaction').classList.remove('hidden');
 }
 
@@ -216,23 +211,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  
+
   document.getElementById('filter-start-date').value = firstDay.toISOString().split('T')[0];
   document.getElementById('filter-end-date').value = lastDay.toISOString().split('T')[0];
-  
+
   loadTransactions();
   loadPatientsForSelect();
-  
+
   document.getElementById('transaction-type-select').addEventListener('change', (e) => {
     document.getElementById('transaction-type').value = e.target.value;
   });
-  
+
   const form = document.getElementById('form-transaction');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = form.querySelector('button[type="submit"]');
     setButtonLoading(submitBtn, true);
-    
+
     const formData = new FormData(form);
     const transactionId = formData.get('id');
     const data = {
@@ -246,24 +241,24 @@ document.addEventListener('DOMContentLoaded', () => {
       patient_id: formData.get('patient_id') || null,
       notes: formData.get('notes')
     };
-    
+
     try {
       const url = transactionId ? `/api/financial/${transactionId}` : '/api/financial';
       const method = transactionId ? 'PUT' : 'POST';
-      
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      
+
       const resData = await res.json();
       if (!res.ok) {
         showError('Erro ao salvar transação: ' + (resData.error || res.status));
         setButtonLoading(submitBtn, false);
         return;
       }
-      
+
       showSuccess(transactionId ? 'Transação atualizada com sucesso!' : 'Transação criada com sucesso!');
       closeTransactionModal();
       loadTransactions();
@@ -278,3 +273,145 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+
+// -------------- PDF Export Logic --------------
+
+async function exportFinancialReportPDF() {
+  alert("Iniciando geração de PDF..."); // Debug 1
+
+  // Tenta acessar jsPDF de todas as formas possíveis
+  const { jsPDF } = window.jspdf || {};
+  if (!jsPDF) {
+    alert("Erro Crítico: jspdf não encontrado. Verifique sua conexão com a internet.");
+    return;
+  }
+
+  const doc = new jsPDF();
+  alert("Documento criado. Adicionando conteúdo..."); // Debug 2
+  const dateStr = new Date().toLocaleDateString('pt-BR');
+
+  // 1. Header
+  doc.setFontSize(18);
+  doc.setTextColor(40, 40, 40);
+  doc.text("Relatório Financeiro - Clínica Marcha", 14, 22);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Data de Emissão: ${dateStr}`, 14, 28);
+
+  let startY = 35;
+
+  // 1.5 Generate and Add Chart
+  if (currentSummary && typeof Chart !== 'undefined') {
+    try {
+      // Create temp canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 200;
+      canvas.style.display = 'none';
+      document.body.appendChild(canvas);
+
+      const income = currentSummary.receitas.paid || 0;
+      const expenseVal = currentSummary.despesas ? currentSummary.despesas.total : 0;
+
+      const chartData = {
+        labels: ['Receitas', 'Despesas'],
+        datasets: [{
+          data: [income, expenseVal],
+          backgroundColor: ['#4caf50', '#f44336']
+        }]
+      };
+
+      const chartInstance = new Chart(canvas, {
+        type: 'doughnut',
+        data: chartData,
+        options: {
+          animation: false,
+          responsive: false,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'right' } }
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      doc.addImage(imgData, 'PNG', 15, startY, 80, 40);
+
+      // Add some info next to chart
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text("Gráfico: Receitas vs Despesas do Período", 100, startY + 20);
+
+      chartInstance.destroy();
+      document.body.removeChild(canvas);
+      startY += 45;
+
+    } catch (e) {
+      console.error("Erro gerando gráfico PDF:", e);
+    }
+  }
+
+  // 2. Summary Section
+  if (currentSummary) {
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, startY, 182, 25, 'F');
+
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text("Resumo do Período", 18, startY + 8);
+
+    doc.setFontSize(10);
+    doc.text(`Total Recebido: ${formatCurrency(currentSummary.receitas.paid)}`, 18, startY + 18);
+    doc.text(`Pendente: ${formatCurrency(currentSummary.receitas.total - currentSummary.receitas.paid)}`, 80, startY + 18);
+    doc.text(`Saldo Esperado: ${formatCurrency(currentSummary.balance)}`, 140, startY + 18);
+
+    startY += 30;
+  }
+
+  // 3. Transactions Table
+  const tableColumn = ["Data", "Descrição", "Categ.", "Cliente/Aluno", "Valor", "Status"];
+  const tableRows = [];
+
+  if (currentTransactions) {
+    currentTransactions.forEach(t => {
+      const date = formatDate(t.due_date);
+      const amount = formatCurrency(t.amount);
+      const status = t.payment_date ? "Pago" : "Pendente";
+      const patient = t.patient_name || "-";
+
+      tableRows.push([
+        date,
+        t.description,
+        t.category || "",
+        patient,
+        amount,
+        status
+      ]);
+    });
+  }
+
+  if (doc.autoTable) {
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: startY,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [22, 160, 133], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+  } else {
+    console.warn("Plugin autoTable não encontrado. Tabela será ignorada.");
+    doc.text("Erro: Plugin de tabela não carregado.", 14, startY + 10);
+  }
+
+  // 4. Save (Direto no Browser)
+  const filename = 'Relatorio_Financeiro_Marcha.pdf';
+  try {
+    doc.save(filename);
+  } catch (e) {
+    console.error("Erro ao salvar PDF:", e);
+    alert("Erro ao salvar PDF.");
+  }
+}
+
+console.log('Script carregado com sucesso');

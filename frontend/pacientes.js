@@ -4,24 +4,24 @@ let editingPatientId = null;
 async function loadPatients() {
   try {
     showLoading('patients-list', 'Carregando pacientes...');
-    
+
     const search = document.getElementById('search-input')?.value || '';
     const activeOnly = document.getElementById('filter-active')?.checked;
-    
+
     let url = '/api/patients';
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (activeOnly) params.append('active', 'true');
     if (params.toString()) url += '?' + params.toString();
-    
+
     const res = await fetch(url);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       showError('Erro ao carregar pacientes: ' + (errorData.error || res.status));
       return;
     }
-    
-    currentPatients = await res.json();
+
+    currentPatients = (await res.json()).filter(p => !p.role || p.role !== 'fisio');
     renderPatients();
   } catch (err) {
     console.error(err);
@@ -32,26 +32,35 @@ async function loadPatients() {
 function renderPatients() {
   const list = document.getElementById('patients-list');
   list.innerHTML = '';
-  
+
   if (!currentPatients.length) {
     list.innerHTML = '<li class="empty-state">Nenhum paciente encontrado</li>';
     return;
   }
-  
+
   currentPatients.forEach(patient => {
     const li = document.createElement('li');
     li.className = 'patient-item';
-    
+
     const info = document.createElement('div');
     info.className = 'patient-info';
-    
+
     const name = document.createElement('div');
     name.className = 'patient-name';
-    name.textContent = patient.name;
-    
+    // Showing Type badge
+    let typeBadge = '';
+    if (patient.type) {
+      let color = '#ccc';
+      if (patient.type === 'Aluno') color = 'var(--accent)';
+      if (patient.type === 'Paciente') color = 'var(--success)';
+      if (patient.type === 'Cliente') color = 'var(--navy)';
+      typeBadge = `<span style="background:${color}; color:white; font-size:0.7em; padding:2px 6px; border-radius:8px; margin-right:6px; vertical-align:middle;">${patient.type}</span>`;
+    }
+    name.innerHTML = `${typeBadge} ${patient.name}`;
+
     const details = document.createElement('div');
     details.className = 'patient-details';
-    
+
     if (patient.phone) {
       const phoneSpan = document.createElement('span');
       phoneSpan.textContent = `📞 ${patient.phone}`;
@@ -73,13 +82,13 @@ function renderPatients() {
       inactiveSpan.style.color = '#f44336';
       details.appendChild(inactiveSpan);
     }
-    
+
     info.appendChild(name);
     info.appendChild(details);
-    
+
     const actions = document.createElement('div');
     actions.className = 'patient-actions';
-    
+
     const editBtn = document.createElement('button');
     editBtn.className = 'btn-edit';
     editBtn.textContent = 'Editar';
@@ -87,22 +96,33 @@ function renderPatients() {
       e.stopPropagation();
       editPatient(patient.id);
     };
-    
+
     actions.appendChild(editBtn);
-    
+
     li.appendChild(info);
     li.appendChild(actions);
     li.onclick = () => viewPatient(patient.id);
-    
+
     list.appendChild(li);
   });
 }
 
+function previewPhoto(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      document.getElementById('patient-photo-preview').src = e.target.result;
+    }
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
 function openNewPatient() {
   editingPatientId = null;
-  document.getElementById('modal-patient-title').textContent = 'Novo Paciente';
+  document.getElementById('modal-patient-title').textContent = 'Novo Cadastro - Clínica Marcha';
   document.getElementById('form-patient').reset();
   document.getElementById('patient-id').value = '';
+  document.getElementById('patient-photo-preview').src = '../assets/default-user.png';
   document.getElementById('modal-patient').classList.remove('hidden');
 }
 
@@ -118,10 +138,11 @@ function editPatient(id) {
     showError('Paciente não encontrado');
     return;
   }
-  
-  document.getElementById('modal-patient-title').textContent = 'Editar Paciente';
+
+  document.getElementById('modal-patient-title').textContent = 'Editar - Clínica Marcha';
   document.getElementById('patient-id').value = patient.id;
   document.getElementById('patient-name').value = patient.name || '';
+  document.getElementById('patient-type').value = patient.type || 'Paciente';
   document.getElementById('patient-cpf').value = patient.cpf || '';
   document.getElementById('patient-phone').value = patient.phone || '';
   document.getElementById('patient-email').value = patient.email || '';
@@ -135,7 +156,13 @@ function editPatient(id) {
   document.getElementById('patient-health_insurance').value = patient.health_insurance || '';
   document.getElementById('patient-health_insurance_number').value = patient.health_insurance_number || '';
   document.getElementById('patient-notes').value = patient.notes || '';
-  
+
+  if (patient.photo) {
+    document.getElementById('patient-photo-preview').src = patient.photo;
+  } else {
+    document.getElementById('patient-photo-preview').src = '../assets/default-user.png';
+  }
+
   document.getElementById('modal-patient').classList.remove('hidden');
 }
 
@@ -149,49 +176,34 @@ function searchPatients() {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadPatients();
-  
+
   const form = document.getElementById('form-patient');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = form.querySelector('button[type="submit"]');
     setButtonLoading(submitBtn, true);
-    
+
     const formData = new FormData(form);
     const patientId = formData.get('id');
-    const data = {
-      name: formData.get('name'),
-      cpf: formData.get('cpf'),
-      phone: formData.get('phone'),
-      email: formData.get('email'),
-      birth_date: formData.get('birth_date'),
-      address: formData.get('address'),
-      city: formData.get('city'),
-      state: formData.get('state'),
-      zip_code: formData.get('zip_code'),
-      emergency_contact: formData.get('emergency_contact'),
-      emergency_phone: formData.get('emergency_phone'),
-      health_insurance: formData.get('health_insurance'),
-      health_insurance_number: formData.get('health_insurance_number'),
-      notes: formData.get('notes')
-    };
-    
+
+    // No need to convert to JSON, fetch accepts FormData directly and sets multipart/form-data
+
     try {
       const url = patientId ? `/api/patients/${patientId}` : '/api/patients';
       const method = patientId ? 'PUT' : 'POST';
-      
+
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: formData // Send FormData directly
       });
-      
+
       const resData = await res.json();
       if (!res.ok) {
         showError('Erro ao salvar paciente: ' + (resData.error || res.status));
         setButtonLoading(submitBtn, false);
         return;
       }
-      
+
       showSuccess(patientId ? 'Paciente atualizado com sucesso!' : 'Paciente cadastrado com sucesso!');
       closePatientModal();
       loadPatients();
