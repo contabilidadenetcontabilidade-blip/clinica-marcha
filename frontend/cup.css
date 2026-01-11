@@ -1,169 +1,173 @@
 :root {
-    --navy: #192C46;
-    --navy-dark: #0F1A2A;
-    --white: #ffffff;
-    --light: #eef2f6;
-  }
-  
-  body {
-    background: var(--light);
-    font-family: 'Segoe UI', sans-serif;
-    margin: 0;
-    color: var(--navy);
-  }
-  
-  .cup-header {
-    background: var(--navy-dark);
-    color: var(--white);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    padding: 15px;
-  }
-  
-  .back-btn {
-    position: absolute;
-    left: 10px;
-    background: none;
-    border: none;
-    color: var(--white);
-    font-size: 22px;
-    cursor: pointer;
-  }
-  
-  main {
-    padding: 20px;
-  }
-  
-  .cup-ranking {
-    background: var(--white);
-    padding: 15px;
-    border-radius: 10px;
-  }
-  
-  #houses-list li {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--light);
-    padding: 8px;
-    margin-top: 8px;
-    border-radius: 8px;
-    cursor: pointer;
-  }
-  
-  .house-crest {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    object-fit: contain;
-  }
-  
-  .add-house-btn {
-    width: 100%;
-    padding: 16px;
-    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
-    color: var(--white);
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 600;
-    margin-top: 20px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(25, 44, 70, 0.3);
-  }
-  
-  .add-house-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(25, 44, 70, 0.4);
-    background: linear-gradient(135deg, var(--navy-light) 0%, var(--navy) 100%);
-  }
-  
-  .floating-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: var(--navy); /* Blue */
-    color: var(--white);
-    border: none;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    font-size: 30px;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(25, 44, 70, 0.4);
-    transition: transform 0.2s, background 0.2s;
+  --navy: #192C46;
+  --navy-dark: #0F1A2A;
+  --white: #ffffff;
+  --light: #eef2f6;
+}
+
+body {
+  background: var(--light);
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  color: var(--navy);
+}
+
+.cup-header {
+  background: var(--navy-dark);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 15px;
+}
+
+.back-btn {
+  position: absolute;
+  left: 10px;
+  background: none;
+  border: none;
+  color: var(--white);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+main {
+  padding: 20px;
+}
+
+.cup-ranking {
+  background: var(--white);
+  padding: 15px;
+  border-radius: 10px;
+}
+
+#houses-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--light);
+  padding: 8px;
+  margin-top: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.house-crest {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.add-house-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--navy);
+  /* Official Blue */
+  color: var(--white);
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(25, 44, 70, 0.3);
+}
+
+.add-house-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(25, 44, 70, 0.4);
+  background: var(--navy-dark);
+}
+
+.floating-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--navy);
+  /* Blue */
+  color: var(--white);
+  border: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  font-size: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(25, 44, 70, 0.4);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.floating-btn:hover {
+  background: var(--navy-dark);
+  transform: scale(1.1);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, .45);
+}
+
+.hidden {
+  display: none;
+}
+
+.modal-content {
+  background: var(--white);
+  padding: 28px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
   }
 
-  .floating-btn:hover {
-      background: var(--navy-dark);
-      transform: scale(1.1);
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
-  
-  .modal {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: rgba(0,0,0,.45);
-  }
-  
-  .hidden {
-    display: none;
-  }
-  
-  .modal-content {
-    background: var(--white);
-    padding: 28px;
-    border-radius: 20px;
-    width: 90%;
-    max-width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    animation: modalSlideIn 0.3s ease;
-  }
-  
-  @keyframes modalSlideIn {
-    from {
-      opacity: 0;
-      transform: translateY(-20px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-  
-  .modal-content h3 {
-    margin: 0 0 20px 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--navy);
-  }
-  /* linha de cada casa no ranking */
-  .house-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    padding: 16px 20px;
-    border-radius: 14px;
-    margin-top: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    border: 1px solid rgba(0,0,0,0.05);
-  }
-  
-  .house-row:hover {
-    transform: translateX(6px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  }
+}
+
+.modal-content h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+/* linha de cada casa no ranking */
+.house-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 16px 20px;
+  border-radius: 14px;
+  margin-top: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.house-row:hover {
+  transform: translateX(6px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
 
 /* brasão pequeno */
 .house-crest {
@@ -171,7 +175,7 @@
   height: 40px;
   border-radius: 8px;
   object-fit: contain;
-  background: rgba(0,0,0,0.15);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 /* conteúdo principal ao lado do brasão */
@@ -198,20 +202,20 @@
 }
 
 /* barra de progresso do ranking */
-  .progress-bar {
-    width: 100%;
-    height: 10px;
-    border-radius: 999px;
-    background: #e0e8f0;
-    overflow: hidden;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-  }
-  
-  .progress-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--navy) 0%, var(--navy-light) 100%);
-    width: 0;
-    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(25, 44, 70, 0.3);
-  }
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e0e8f0;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--navy) 0%, var(--navy-light) 100%);
+  width: 0;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(25, 44, 70, 0.3);
+}

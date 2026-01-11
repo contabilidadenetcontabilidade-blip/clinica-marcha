@@ -86,6 +86,11 @@ async function loadHouses() {
       img.className = "house-crest";
       if (h.crest) {
         img.src = h.crest;
+        img.onerror = function () { // Fallback if image fails
+          this.onerror = null;
+          this.src = '../assets/logo_marcha.png'; // Or empty
+          this.style.background = h.color || '#192C46';
+        };
       } else {
         img.style.background = h.color || '#192C46';
       }
@@ -140,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Validação de arquivo antes de enviar
   const crestInput = document.getElementById('crest-input');
   if (crestInput) {
-    crestInput.addEventListener('change', function(e) {
+    crestInput.addEventListener('change', function (e) {
       const file = e.target.files[0];
       if (file) {
         // Valida tamanho (5MB)
@@ -149,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
           e.target.value = '';
           return;
         }
-        
+
         // Valida tipo MIME
         if (file.type !== 'image/png') {
           showError('Apenas arquivos PNG são aceitos');
@@ -168,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const formData = new FormData(this);
-      
+
       // Validação final antes de enviar
       const fileInput = this.querySelector('input[type="file"]');
       if (fileInput && fileInput.files.length > 0) {

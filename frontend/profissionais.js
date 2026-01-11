@@ -60,6 +60,10 @@ async function loadProfessionals() {
         fisios.forEach(p => {
             const li = document.createElement('li');
             li.className = 'patient-item';
+
+            // Safer ID handling
+            const safeId = typeof p.id === 'string' ? `'${p.id}'` : p.id;
+
             li.innerHTML = `
         <div class="patient-info">
           <div class="patient-name">🥼 ${p.name}</div>
@@ -68,7 +72,7 @@ async function loadProfessionals() {
           </div>
         </div>
         <div class="patient-actions">
-           <button class="btn-edit" onclick="editProfessional(${p.id})">Editar</button>
+           <button class="btn-edit" onclick="editProfessional(${safeId})">Editar</button>
         </div>
       `;
             list.appendChild(li);
@@ -95,20 +99,36 @@ function openNewProfessional() {
     document.getElementById('modal-professional').classList.remove('hidden');
 }
 
-function editProfessional(id) {
-    // We need to fetch details or find in list
-    // Re-fetch to be safe or use current list if stored. 
-    // Let's just fetch single
+// Ensure global access
+window.editProfessional = function (id) {
+    console.log("Edit Professional clicked:", id);
     fetch(`/api/patients/${id}`)
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error("Erro ao buscar dados");
+            return res.json();
+        })
         .then(data => {
-            document.getElementById('prof-id').value = data.id;
-            document.getElementById('prof-name').value = data.name;
-            document.getElementById('prof-email').value = data.email || '';
-            document.getElementById('prof-password').value = ''; // Don't show password
-            document.getElementById('modal-title').textContent = 'Editar Profissional';
-            document.getElementById('modal-professional').classList.remove('hidden');
+            console.log("Professional data loaded:", data);
+            const modal = document.getElementById('modal-professional');
+            if (modal) {
+                document.getElementById('prof-id').value = data.id;
+                document.getElementById('prof-name').value = data.name;
+                document.getElementById('prof-email').value = data.email || '';
+                document.getElementById('prof-password').value = '';
+                document.getElementById('modal-title').textContent = 'Editar Profissional';
+                modal.classList.remove('hidden');
+            } else {
+                console.error("Modal not found");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showError("Erro ao carregar dados para edição.");
         });
+};
+
+function closeModal() {
+    document.getElementById('modal-professional').classList.add('hidden');
 }
 
 function closeModal() {
