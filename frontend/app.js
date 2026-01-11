@@ -2,17 +2,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 1. Fetch Dashboard Stats
   try {
-    const res = await fetch('/api/dashboard');
+    const user = JSON.parse(localStorage.getItem('user'));
+
+    // UI Hiding (Security Rule)
+    if (user && user.role !== 'admin') {
+      // Hide Faturamento Card
+      const revCard = document.getElementById('dashboard-total-revenue').closest('.card');
+      if (revCard) revCard.style.display = 'none';
+
+      // Hide Finance Chart
+      const finChart = document.getElementById('financePieChart').closest('.card');
+      if (finChart) finChart.style.display = 'none';
+    }
+
+    const res = await fetch('/api/dashboard', {
+      headers: { 'X-User-Role': user ? user.role : 'guest' }
+    });
+
     if (!res.ok) throw new Error('API Error');
     const data = await res.json();
 
     // Update Cards
-    document.getElementById('dashboard-total-revenue').textContent = formatCurrency(data.income);
+    if (user && user.role === 'admin') {
+      document.getElementById('dashboard-total-revenue').textContent = formatCurrency(data.income);
+      renderFinanceChart(data.income, data.expenses);
+    }
+
     document.getElementById('dashboard-active-patients').textContent = data.activePatients;
     document.getElementById('dashboard-cup-leader').textContent = data.leader ? data.leader.name : '-';
 
     // Render Charts
-    renderFinanceChart(data.income, data.expenses);
     renderAppointmentsChart(data.appointments);
 
   } catch (e) {

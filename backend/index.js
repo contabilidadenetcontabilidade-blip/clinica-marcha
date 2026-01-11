@@ -585,6 +585,12 @@ app.get('/api/financial', async (req, res) => {
 
 app.get('/api/financial/summary', async (req, res) => {
   const { start_date, end_date } = req.query;
+
+  // Security Check
+  if (req.headers['x-user-role'] !== 'admin') {
+    return res.status(403).json({ error: "Acesso Negado: Apenas Administradores" });
+  }
+
   let where = "WHERE 1=1";
   const params = [];
 
@@ -652,17 +658,26 @@ app.delete('/api/financial/:id', async (req, res) => {
 app.get('/api/dashboard', async (req, res) => {
   try {
     // 1. Clientes Ativos (BLINDAGEM: Apenas ALUNO ou CLIENTE)
+    // FIX: Using correct query structure seen in patients filters or simplistic count
     const p1 = pool.query("SELECT COUNT(*) as count FROM patients WHERE active = 1 AND role IN ('aluno', 'cliente', 'ALUNO', 'CLIENTE')");
 
-    // 2. Receita Mês
+    // Auth Check
+    const userRole = req.headers['x-user-role'];
+    const isAdmin = userRole === 'admin';
+
+    // 2. Receita Mês (ONLY ADMIN)
     const date = new Date();
     const start = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
     const end = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
 
-    const p2 = pool.query("SELECT SUM(amount) as total FROM financial_transactions WHERE type='receita' AND payment_date BETWEEN $1 AND $2", [start, end]);
+    const p2 = isAdmin
+      ? pool.query("SELECT SUM(amount) as total FROM financial_transactions WHERE type='receita' AND payment_date BETWEEN $1 AND $2", [start, end])
+      : Promise.resolve({ rows: [{ total: 0 }] }); // Fake result for non-admins
 
-    // 3. Despesas Mês
-    const p3 = pool.query("SELECT SUM(amount) as total FROM financial_transactions WHERE type='despesa' AND due_date BETWEEN $1 AND $2", [start, end]);
+    // 3. Despesas Mês (ONLY ADMIN)
+    const p3 = isAdmin
+      ? pool.query("SELECT SUM(amount) as total FROM financial_transactions WHERE type='despesa' AND due_date BETWEEN $1 AND $2", [start, end])
+      : Promise.resolve({ rows: [{ total: 0 }] });
 
     // 4. Agendamentos
     const p4 = pool.query("SELECT service_type, COUNT(*) as count FROM appointments WHERE appointment_date BETWEEN $1 AND $2 GROUP BY service_type", [start, end]);
