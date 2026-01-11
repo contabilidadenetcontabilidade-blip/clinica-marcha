@@ -395,84 +395,31 @@ app.put('/api/patients/:id/house', async (req, res) => {
     if (pRes.rowCount === 0) return res.status(404).json({ error: "Aluno não encontrado" });
     const patientName = pRes.rows[0].name;
 
+    // 2. Check if Athlete exists
     let aRes = await pool.query("SELECT id FROM athletes WHERE patient_id = $1", [patientId]);
 
-    // ... (rest of function)
-    /* Skipping full replace of this function, assume it works. Just adding new routes below. */
+    // Fallback: Check by name (migration support)
+    if (aRes.rowCount === 0) {
+      aRes = await pool.query("SELECT id FROM athletes WHERE name = $1", [patientName]);
+      // If found by name, we should link it now
+      if (aRes.rowCount > 0) {
+        await pool.query("UPDATE athletes SET patient_id = $1 WHERE id = $2", [patientId, aRes.rows[0].id]);
+      }
+    }
 
-    // Fix for update:
-    // If we're updating simple data, run it.
-    // ...
-    // NOTE: This block is inside a route. I should place new routes outside.
-    // I will replace ONLY the route definitions requested.
+    if (aRes.rowCount > 0) {
+      // Update existing
+      await pool.query("UPDATE athletes SET house_id = $1 WHERE id = $2", [house_id, aRes.rows[0].id]);
+    } else {
+      // Create new
+      await pool.query("INSERT INTO athletes (name, house_id, patient_id) VALUES ($1, $2, $3)",
+        [patientName, house_id, patientId]);
+    }
 
-    res.json({ error: "Use full update flow" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// =============== PROFESSIONALS (NEW) ==================
-app.get('/api/professionals', async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM patients WHERE role IN ('fisio', 'admin', 'prof') OR type = 'Fisioterapeuta' ORDER BY name ASC");
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// =============== HOUSE GALLERY (NEW) ==================
-app.get('/api/houses/:id/photos', async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM house_photos WHERE house_id = $1 ORDER BY created_at DESC", [req.params.id]);
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/houses/:id/photos', uploadPatients.single('photo'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No file" });
-    const photoUrl = `/assets/patients/${req.file.filename}`; // Reuse uploads folder
-    await pool.query("INSERT INTO house_photos (house_id, photo_url) VALUES ($1, $2)", [req.params.id, photoUrl]);
-    res.json({ success: true, url: photoUrl });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete('/api/houses/photos/:id', async (req, res) => {
-  try {
-    await pool.query("DELETE FROM house_photos WHERE id = $1", [req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
-// Fallback: Check by name if not found by ID (migration support)
-if (aRes.rowCount === 0) {
-  aRes = await pool.query("SELECT id FROM athletes WHERE name = $1", [patientName]);
-  // If found by name, we should link it now
-  if (aRes.rowCount > 0) {
-    await pool.query("UPDATE athletes SET patient_id = $1 WHERE id = $2", [patientId, aRes.rows[0].id]);
-  }
-}
-
-if (aRes.rowCount > 0) {
-  // Update existing
-  await pool.query("UPDATE athletes SET house_id = $1 WHERE id = $2", [house_id, aRes.rows[0].id]);
-} else {
-  // Create new
-  await pool.query("INSERT INTO athletes (name, house_id, patient_id) VALUES ($1, $2, $3)",
-    [patientName, house_id, patientId]);
-}
-
-res.json({ success: true });
-  } catch (err) {
-  console.error(err);
-  res.status(500).json({ error: err.message });
-}
 });
 
 // DEBUG DE AGENDAMENTOS
