@@ -100,7 +100,12 @@ async function initializeDB() {
   try {
     const schema = fs.readFileSync(path.join(__dirname, 'schema_pg.sql'), 'utf8');
     await pgPool.query(schema);
-    console.log("✅ Banco de dados PostgreSQL inicializado e verificado.");
+
+    // V9 Migration
+    const migration = fs.readFileSync(path.join(__dirname, 'migration_v9.sql'), 'utf8');
+    await pgPool.query(migration);
+
+    console.log("✅ Banco de dados PostgreSQL inicializado e verificado (V9 Migrated).");
   } catch (err) {
     console.error("❌ Erro na inicialização do DB (PG):", err.message);
   }
@@ -142,6 +147,7 @@ const poolWrapper = {
     // SQLite Logic
     return new Promise((resolve, reject) => {
       const db = getSQLite();
+      console.log("sqlite input:", text, params);
 
       // 1. Convert $N to ? and re-map params
       // Postgres allows reusing parameters (e.g., $1 used twice), but SQLite's ? is strictly positional.
