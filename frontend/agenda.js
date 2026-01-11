@@ -441,7 +441,56 @@ async function confirmAbsence() {
   }
 }
 
-// Keep existing listener for Main Confirm Form (Attendance)
+// ------------------------------------
+// sendWhatsAppReminder
+// ------------------------------------
+function sendWhatsAppReminder() {
+  const appId = document.getElementById('appointment-id').value;
+  const date = document.getElementById('appointment-date').value;
+  const time = document.getElementById('appointment-start_time').value;
+  const patientSelect = document.getElementById('appointment-patient_id');
+  const patientId = patientSelect.value;
+
+  if (!patientId) {
+    showError("Selecione um paciente para enviar mensagem.");
+    return;
+  }
+
+  // We need the phone number. We can get it from 'currentAppointments' if editing, or fetch patient details.
+  // If it's a new appointment being created, we might not have the phone handy in currentAppointments if specific to patient list?
+  // Actually detailed patient list loader (loadPatientsForSelect) doesn't store phone in DOM.
+  // Simplest approach: Find patient in 'currentAppointments' if editing, OR fetch patient.
+
+  // Strategy: Fetch patient details on demand to be safe.
+  fetch(`/api/patients/${patientId}`)
+    .then(res => res.json())
+    .then(patient => {
+      if (!patient.phone) {
+        alert("Paciente sem telefone cadastrado.");
+        return;
+      }
+
+      const rawPhone = patient.phone.replace(/\D/g, '');
+      if (rawPhone.length < 10) {
+        alert("Telefone inválido.");
+        return;
+      }
+
+      const dateObj = new Date(date + 'T00:00:00'); // Force local date interpretation
+      const dateStr = dateObj.toLocaleDateString('pt-BR');
+
+      const msg = `Olá ${patient.name.split(' ')[0]}, seu agendamento na Clínica Marcha está confirmado para dia ${dateStr} às ${time}. 🏃🏻‍♀️`;
+      const url = `https://wa.me/55${rawPhone}?text=${encodeURIComponent(msg)}`;
+
+      window.open(url, '_blank');
+    })
+    .catch(err => {
+      console.error(err);
+      showError("Erro ao buscar dados do paciente.");
+    });
+}
+
+// Keep existing listener code...
 document.addEventListener('DOMContentLoaded', () => {
   const confirmForm = document.getElementById('form-confirm-presence');
   if (confirmForm) {

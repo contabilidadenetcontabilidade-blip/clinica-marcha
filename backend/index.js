@@ -481,7 +481,7 @@ app.get('/api/diagnosis', async (req, res) => {
 app.get('/api/appointments', async (req, res) => {
   const { date, start_date, end_date } = req.query;
   let sql = `
-        SELECT a.*, p.name as patient_name 
+        SELECT a.*, p.name as patient_name, p.phone as patient_phone
         FROM appointments a
         LEFT JOIN patients p ON a.patient_id = p.id
         WHERE 1=1
