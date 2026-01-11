@@ -100,6 +100,16 @@ const uploadPatients = multer({
           ['Aluno Flow 2', hRes.rows[0].id, p.rows[0].id]);
       }
     }
+
+    // Seed Physio for Validation
+    const resFisio = await pool.query("SELECT id FROM patients WHERE username = 'fisioteste'");
+    if (resFisio.rowCount === 0) {
+      console.log("Criando fisioterapeuta de teste (Fisio Teste)...");
+      await pool.query(
+        "INSERT INTO patients (name, type, role, password, username, email) VALUES ($1, $2, $3, $4, $5, $6)",
+        ['Fisio Teste', 'Profissional', 'fisio', '123', 'fisioteste', 'fisio@marcha.com.br']
+      );
+    }
   } catch (e) {
     console.error("Erro na verificação de admin:", e);
   }
