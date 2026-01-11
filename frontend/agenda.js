@@ -78,16 +78,18 @@ function renderAgenda() {
   }
 }
 
+// FIX DAY VIEW
 function renderDayView() {
   const container = document.getElementById('agenda-view');
   const dayAppointments = currentAppointments.filter(apt =>
-    apt.appointment_date === formatDate(currentDate)
+    (apt.appointment_date || '').split('T')[0] === formatDate(currentDate)
   );
 
   if (!dayAppointments.length) {
     container.innerHTML = '<div class="agenda-empty">Nenhum agendamento para este dia</div>';
     return;
   }
+  // ... (rest of function omitted for brevity, logic continues)
 
   dayAppointments.sort((a, b) => a.start_time.localeCompare(b.start_time));
 
@@ -149,7 +151,10 @@ function renderWeekView() {
     const dayColumn = document.createElement('div');
     dayColumn.className = `week-day ${isToday ? 'week-day-today' : ''}`;
 
-    const dayAppointments = currentAppointments.filter(apt => apt.appointment_date === dayStr);
+    // FIX WEEK VIEW COMPARISON
+    const dayAppointments = currentAppointments.filter(apt =>
+      (apt.appointment_date || '').split('T')[0] === dayStr
+    );
     dayAppointments.sort((a, b) => a.start_time.localeCompare(b.start_time));
 
     dayAppointments.forEach(apt => {

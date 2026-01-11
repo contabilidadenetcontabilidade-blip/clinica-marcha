@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Ranking Marcha Cup 🏆</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: #121212;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            width: 120px;
+            margin-bottom: 20px;
+        }
+
+        .ranking-container {
+            max-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .house-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.2s;
+        }
+
+        .house-card:hover {
+            transform: scale(1.02);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .house-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .crest {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+
+        .house-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .points {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--gold);
+        }
+
+        .rank-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #888;
+            width: 30px;
+        }
+
+        .rank-1 .rank-number {
+            color: #FFD700;
+        }
+
+        .rank-2 .rank-number {
+            color: #C0C0C0;
+        }
+
+        .rank-3 .rank-number {
+            color: #CD7F32;
+        }
+
+        .nav-bottom {
+            margin-top: 40px;
+        }
+
+        .btn-outline {
+            padding: 10px 20px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #ddd;
+            text-decoration: none;
+            background: transparent;
+            transition: all 0.2s;
+        }
+
+        .btn-outline:hover {
+            border-color: #fff;
+            color: #fff;
+        }
+    </style>
+    <script>
+        // Quick auth check
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) window.location.href = 'login.html';
+    </script>
+</head>
+
+<body>
+
+    <div class="header">
+        <img src="../assets/logo_marcha.png" alt="Marcha" class="logo">
+        <h1>Marcha Cup 🏆</h1>
+        <p style="color: #aaa;">Ranking Atualizado das Casas</p>
+    </div>
+
+    <div id="ranking-list" class="ranking-container">
+        <p>Carregando ranking...</p>
+    </div>
+
+    <div class="nav-bottom">
+        <a href="portal_aluno.html" class="btn-outline">👤 Meu Perfil</a>
+        <a href="#" onclick="logout()" class="btn-outline"
+            style="margin-left:10px; border-color: #d32f2f; color: #ef5350;">Sair</a>
+    </div>
+
+    <script>
+        function logout() {
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        async function loadRanking() {
+            try {
+                const res = await fetch('/api/ranking');
+                const houses = await res.json();
+
+                const container = document.getElementById('ranking-list');
+                container.innerHTML = '';
+
+                houses.forEach((house, index) => {
+                    const div = document.createElement('div');
+                    div.className = `house-card rank-${index + 1}`;
+                    div.style.borderLeft = `5px solid ${house.color}`;
+
+                    const crestUrl = house.crest || '../assets/shield_placeholder.png';
+
+                    div.innerHTML = `
+                    <div class="house-info">
+                        <span class="rank-number">#${index + 1}</span>
+                        <img src="${crestUrl}" class="crest" onerror="this.src='../assets/shield_placeholder.png'">
+                        <span class="house-name" style="color:${house.color}">${house.name}</span>
+                    </div>
+                    <div class="points">${house.total_points} pts</div>
+                  `;
+                    container.appendChild(div);
+                });
+
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        loadRanking();
+    </script>
+</body>
+
+</html>

@@ -6,12 +6,42 @@ const multer = require('multer');
 const { pool } = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 
-// --------- MIDDLEWARES BÁSICOS ----------
+app.get('/api/version', (req, res) => {
+  res.json({ version: 'v9', timestamp: new Date().toString(), env: process.env.NODE_ENV });
+});
+
+app.get('/api/ls-frontend', (req, res) => {
+  const dir = path.join(__dirname, '../frontend');
+  fs.readdir(dir, (err, files) => {
+    if (err) return res.status(500).json({ error: err.message, path: dir });
+    res.json({ path: dir, files: files });
+  });
+});
+
+console.log("SERVER STARTING - REVISION V9");
+console.log("DB HOST:", process.env.PGHOST || "N/A");
+console.log("INSTANCE:", process.env.INSTANCE_CONNECTION_NAME || "N/A");
+
+// Serve arquivos estáticos do frontendBÁSICOS ----------
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/assets', express.static(path.join(__dirname, '../assets')));
+
+// DEBUG: Forçar servimento do agenda.html
+app.get('/agenda.html', (req, res) => {
+  const file = path.join(__dirname, '../frontend/agenda.html');
+  if (fs.existsSync(file)) {
+    res.sendFile(file);
+  } else {
+    res.status(404).send('Agenda file not found on server');
+    // Log files to debug
+    fs.readdir(path.join(__dirname, '../frontend'), (err, files) => {
+      console.log("DEBUG FRONTEND DIR:", files);
+    });
+  }
+});
 
 // --------- UPLOAD CONFIG ----------
 const storage = multer.diskStorage({
@@ -58,13 +88,38 @@ const uploadPatients = multer({
   }
 })();
 
+// Health Check do Banco de Dados
+app.get('/api/db-check', async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const result = await client.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
+    );
+    res.json({
+      status: 'ok',
+      connection: 'success',
+      tables: result.rows.map(r => r.table_name)
+    });
+  } catch (err) {
+    console.error("Health Check Falhou:", err);
+    res.status(500).json({
+      status: 'error',
+      message: err.message,
+      detail: 'Falha ao conectar ou listar tabelas'
+    });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Obrigatório usuário e senha" });
 
   try {
     const result = await pool.query(
-      "SELECT * FROM patients WHERE (name = $1 OR email = $1 OR cpf = $1) AND password = $2",
+      "SELECT * FROM patients WHERE (username = $1 OR name = $1 OR email = $1 OR cpf = $1) AND password = $2",
       [username, password]
     );
     const user = result.rows[0];
@@ -148,6 +203,24 @@ app.get('/api/houses', async (req, res) => {
   }
 });
 
+app.get('/api/ranking', async (req, res) => {
+  try {
+    const rRes = await pool.query(`
+            SELECT h.id, h.name, h.color, h.crest, COALESCE(SUM(sr.value), 0) as total_points
+            FROM houses h
+            LEFT JOIN athletes a ON a.house_id = h.id
+            LEFT JOIN scores s ON s.athlete_id = a.id
+            LEFT JOIN scoring_rules sr ON s.rule_id = sr.id
+            WHERE h.active = 1
+            GROUP BY h.id, h.name, h.color, h.crest
+            ORDER BY total_points DESC, h.name ASC
+        `);
+    res.json(rRes.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/houses', upload.single('crest'), async (req, res) => {
   const { name, color } = req.body;
   const crest = req.file ? `/assets/houses/${req.file.filename}` : null;
@@ -202,15 +275,21 @@ app.get('/api/houses/:id/dashboard', async (req, res) => {
 app.get('/api/patients', async (req, res) => {
   const { active } = req.query;
   // FILTRO RIGOROSO: Apenas ALUNO ou CLIENTE
-  let sql = "SELECT * FROM patients WHERE role IN ('aluno', 'cliente', 'ALUNO', 'CLIENTE')";
+  // FILTRO RIGOROSO: Apenas ALUNO ou CLIENTE
+  let sql = `
+    SELECT p.*, a.house_id 
+    FROM patients p 
+    LEFT JOIN athletes a ON a.patient_id = p.id OR (a.patient_id IS NULL AND a.name = p.name)
+    WHERE p.role IN ('aluno', 'cliente', 'ALUNO', 'CLIENTE')
+  `;
   const params = [];
 
   if (active) {
     params.push(1);
-    sql += " AND active = $1";
+    sql += " AND p.active = $1";
   }
 
-  sql += " ORDER BY name ASC";
+  sql += " ORDER BY p.name ASC";
 
   try {
     const result = await pool.query(sql, params);
@@ -258,9 +337,10 @@ app.put('/api/patients/:id', uploadPatients.single('photo'), async (req, res) =>
               password = COALESCE($6, password),
               active = COALESCE($7, active),
               photo = COALESCE($8, photo),
+              username = COALESCE($9, username),
               updated_at = CURRENT_TIMESTAMP
-            WHERE id = $9
-        `, [name, phone, email, type, role, password, active, photoPath, id]);
+            WHERE id = $10
+        `, [name, phone, email, type, role, password, active, photoPath, req.body.username, id]);
 
     if (result.rowCount === 0) return res.status(404).json({ error: "Not found" });
     res.json({ success: true });
@@ -273,6 +353,100 @@ app.delete('/api/patients/:id', async (req, res) => {
   try {
     await pool.query("UPDATE patients SET active = 0 WHERE id = $1", [req.params.id]);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/patients/:id/house', async (req, res) => {
+  const patientId = req.params.id;
+  const { house_id } = req.body;
+
+  try {
+    // 1. Get Patient Name
+    const pRes = await pool.query("SELECT name FROM patients WHERE id = $1", [patientId]);
+    if (pRes.rowCount === 0) return res.status(404).json({ error: "Aluno não encontrado" });
+    const patientName = pRes.rows[0].name;
+
+    // 2. Check if Athlete exists (by patient_id preferably, or fallback to name)
+    // We try patient_id first
+    let aRes = await pool.query("SELECT id FROM athletes WHERE patient_id = $1", [patientId]);
+
+    // Fallback: Check by name if not found by ID (migration support)
+    if (aRes.rowCount === 0) {
+      aRes = await pool.query("SELECT id FROM athletes WHERE name = $1", [patientName]);
+      // If found by name, we should link it now
+      if (aRes.rowCount > 0) {
+        await pool.query("UPDATE athletes SET patient_id = $1 WHERE id = $2", [patientId, aRes.rows[0].id]);
+      }
+    }
+
+    if (aRes.rowCount > 0) {
+      // Update existing
+      await pool.query("UPDATE athletes SET house_id = $1 WHERE id = $2", [house_id, aRes.rows[0].id]);
+    } else {
+      // Create new
+      await pool.query("INSERT INTO athletes (name, house_id, patient_id) VALUES ($1, $2, $3)",
+        [patientName, house_id, patientId]);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DEBUG DE AGENDAMENTOS
+app.get('/api/debug-appointments', async (req, res) => {
+  try {
+    let seedResult = false;
+
+    // Seed de Emergência
+    if (req.query.seed === 'true') {
+      console.log("Criando agendamento de teste...");
+      // Pega o primeiro paciente (provavelmente Tamara)
+      const pRes = await pool.query("SELECT id FROM patients LIMIT 1");
+      if (pRes.rows.length > 0) {
+        await pool.query(`
+            INSERT INTO appointments (patient_id, title, appointment_date, start_time, service_type, status)
+            VALUES ($1, 'Teste de Debug', CURRENT_DATE, '14:00:00', 'Avaliação', 'pendente')
+         `, [pRes.rows[0].id]);
+        seedResult = true;
+      }
+    }
+
+    // Listagem Geral
+    const result = await pool.query(`
+        SELECT a.id, a.title, a.appointment_date, a.start_time, p.name as patient_name 
+        FROM appointments a
+        LEFT JOIN patients p ON a.patient_id = p.id
+        ORDER BY a.appointment_date DESC LIMIT 50
+    `);
+
+    res.json({
+      msg: "Lista de Agendamentos (Raw)",
+      count: result.rows.length,
+      seed_created: seedResult,
+      rows: result.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DEBUG DE DIAGNÓSTICO (Count & Config)
+app.get('/api/diagnosis', async (req, res) => {
+  try {
+    const countRes = await pool.query("SELECT COUNT(*) FROM appointments");
+    const sampleRes = await pool.query("SELECT * FROM appointments ORDER BY created_at DESC LIMIT 5");
+
+    res.json({
+      status: 'ok',
+      count: countRes.rows[0].count,
+      server_time: new Date().toString(),
+      samples: sampleRes.rows
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -291,10 +465,12 @@ app.get('/api/appointments', async (req, res) => {
 
   if (date) {
     params.push(date);
-    sql += ` AND a.appointment_date = $${params.length}`;
+    // FIX: Cast para date previne erros se o banco tiver timestamp
+    sql += ` AND a.appointment_date::date = $${params.length}::date`;
   } else if (start_date && end_date) {
     params.push(start_date, end_date);
-    sql += ` AND a.appointment_date BETWEEN $${params.length - 1} AND $${params.length}`;
+    // FIX: Range com cast
+    sql += ` AND a.appointment_date::date BETWEEN $${params.length - 1}::date AND $${params.length}::date`;
   }
 
   sql += " ORDER BY a.appointment_date ASC, a.start_time ASC";
@@ -480,6 +656,6 @@ app.get('/api/dashboard', async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
-  console.log(`Backend rodando na porta ${PORT}`);
+app.listen(port, () => {
+  console.log(`Backend rodando na porta ${port}`);
 });

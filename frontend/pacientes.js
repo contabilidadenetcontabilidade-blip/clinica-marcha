@@ -29,6 +29,31 @@ async function loadPatients() {
   }
 }
 
+// Cache de casas
+let housesList = [];
+async function loadHouses() {
+  if (housesList.length > 0) return;
+  try {
+    const res = await fetch('/api/houses');
+    if (res.ok) {
+      housesList = await res.json();
+    }
+  } catch (e) { console.error("Erro ao carregar casas", e); }
+}
+
+function populateHouseSelect() {
+  const sel = document.getElementById('patient-house');
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- Sem Casa --</option>';
+  housesList.forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h.id;
+    opt.textContent = h.name;
+    sel.appendChild(opt);
+  });
+  sel.value = currentVal;
+}
+
 function renderPatients() {
   const list = document.getElementById('patients-list');
   list.innerHTML = '';
@@ -122,6 +147,8 @@ function openNewPatient() {
   document.getElementById('modal-patient-title').textContent = 'Novo Cadastro - Clínica Marcha';
   document.getElementById('form-patient').reset();
   document.getElementById('patient-id').value = '';
+  document.getElementById('patient-username').value = '';
+  populateHouseSelect();
   document.getElementById('patient-photo-preview').src = '../assets/default-user.png';
   document.getElementById('modal-patient').classList.remove('hidden');
 }
@@ -144,8 +171,16 @@ function editPatient(id) {
   document.getElementById('patient-name').value = patient.name || '';
   document.getElementById('patient-type').value = patient.type || 'Paciente';
   document.getElementById('patient-cpf').value = patient.cpf || '';
+  document.getElementById('patient-username').value = patient.username || '';
+
+  // Casas
+  loadHouses().then(() => {
+    populateHouseSelect();
+    document.getElementById('patient-house').value = patient.house_id || '';
+  });
   document.getElementById('patient-phone').value = patient.phone || '';
   document.getElementById('patient-email').value = patient.email || '';
+  document.getElementById('patient-password').value = patient.password || '';
   document.getElementById('patient-birth_date').value = patient.birth_date || '';
   document.getElementById('patient-address').value = patient.address || '';
   document.getElementById('patient-city').value = patient.city || '';
@@ -204,6 +239,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // Update House
+      const houseId = formData.get('house_id');
+      const savedId = patientId || resData.id;
+      if (houseId !== null && savedId) {
+        await fetch(`/api/patients/${savedId}/house`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ house_id: houseId })
+        });
+      }
+
       showSuccess(patientId ? 'Paciente atualizado com sucesso!' : 'Paciente cadastrado com sucesso!');
       closePatientModal();
       loadPatients();
@@ -215,6 +261,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// Init Houses
+loadHouses();
 
 
 

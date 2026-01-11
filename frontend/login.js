@@ -41,7 +41,6 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         } else if (data.role === 'fisio') {
             window.location.href = 'agenda.html'; // Fisioterapeuta -> Agenda
         } else {
-            // Aluno or others
             window.location.href = 'portal_aluno.html';
         }
 
