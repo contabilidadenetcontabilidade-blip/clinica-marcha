@@ -45,9 +45,9 @@ app.get('/agenda.html', (req, res) => {
 
 // --------- UPLOAD CONFIG ----------
 // Ensure directories exist
-const fs = require('fs');
+// Ensure directories exist
 const assetsDir = path.join(__dirname, '../assets');
-if (!fs.existsSync(url = assetsDir)) fs.mkdirSync(assetsDir, { recursive: true });
+if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir, { recursive: true });
 if (!fs.existsSync(path.join(assetsDir, 'houses'))) fs.mkdirSync(path.join(assetsDir, 'houses'), { recursive: true });
 if (!fs.existsSync(path.join(assetsDir, 'patients'))) fs.mkdirSync(path.join(assetsDir, 'patients'), { recursive: true });
 
