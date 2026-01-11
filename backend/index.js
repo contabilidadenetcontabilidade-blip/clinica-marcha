@@ -79,9 +79,26 @@ const uploadPatients = multer({
     if (res.rowCount === 0) {
       console.log("Criando usuário admin (Tamara)...");
       await pool.query(
-        "INSERT INTO patients (name, type, role, password, email) VALUES ($1, $2, $3, $4, $5)",
-        ['Tamara', 'Admin', 'admin', 'admin', 'tamara@marcha.com.br']
+        "INSERT INTO patients (name, type, role, password, email, username) VALUES ($1, $2, $3, $4, $5, $6)",
+        ['Tamara', 'Admin', 'admin', 'admin', 'tamara@marcha.com.br', 'Tamara']
       );
+    }
+
+    // Seed Student for Validation
+    const resVal = await pool.query("SELECT id FROM patients WHERE username = 'aluno.flow2'");
+    if (resVal.rowCount === 0) {
+      console.log("Criando aluno de teste (Aluno Flow 2)...");
+      const p = await pool.query(
+        "INSERT INTO patients (name, type, role, password, username) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+        ['Aluno Flow 2', 'Aluno', 'aluno', '123', 'aluno.flow2']
+      );
+      // Link to House Reformer (Assuming ID 1 is Reformer? Or check name)
+      // We need houses first.
+      const hRes = await pool.query("SELECT id FROM houses WHERE name = 'Reformer'");
+      if (hRes.rowCount > 0) {
+        await pool.query("INSERT INTO athletes (name, house_id, patient_id) VALUES ($1, $2, $3)",
+          ['Aluno Flow 2', hRes.rows[0].id, p.rows[0].id]);
+      }
     }
   } catch (e) {
     console.error("Erro na verificação de admin:", e);
