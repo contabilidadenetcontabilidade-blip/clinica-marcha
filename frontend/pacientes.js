@@ -265,5 +265,20 @@ document.addEventListener('DOMContentLoaded', () => {
 // Init Houses
 loadHouses();
 
+async function generateInviteLink() {
+  try {
+    const res = await fetch('/api/invites', { method: 'POST' });
+    if (!res.ok) throw new Error("Erro API");
+    const data = await res.json();
+    const link = `${window.location.origin}/cadastro-cliente.html?token=${data.token}`;
+
+    await navigator.clipboard.writeText(link);
+    showSuccess("Link copiado para a área de transferência! (Válido por 24h)");
+  } catch (e) {
+    console.error(e);
+    showError("Erro ao gerar link");
+  }
+}
+
 
 

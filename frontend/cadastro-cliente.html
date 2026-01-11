@@ -113,6 +113,37 @@
 
     <script src="utils.js"></script>
     <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        // Initial Validation
+        (async function validateToken() {
+            if (!token) {
+                showExpired("Link Inválido (sem token)");
+                return;
+            }
+            try {
+                const res = await fetch(`/api/invites/${token}`);
+                const data = await res.json();
+                if (!data.valid) {
+                    showExpired(data.message || "Link Expirado");
+                }
+            } catch (e) {
+                showExpired("Erro ao validar link");
+            }
+        })();
+
+        function showExpired(msg) {
+            document.querySelector('.register-card').innerHTML = `
+                <div style="text-align: center; color: #f44336;">
+                    <h1 style="font-size: 4rem; margin:0;">⚠️</h1>
+                    <h2>Link Expirado</h2>
+                    <p>${msg}</p>
+                    <p style="font-size:0.9rem; margin-top:10px;">Solicite um novo link para a clínica.</p>
+                </div>
+            `;
+        }
+
         document.getElementById('public-register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button');
@@ -120,19 +151,14 @@
             btn.textContent = 'Enviando...';
             btn.disabled = true;
 
-            const formData = new FormData(e.target);
-            // Public route usually doesn't need file upload, so JSON is fine, 
-            // but backend endpoint `/api/patients` uses `upload.single('photo')` middleware.
-            // If we send JSON, multer might complain if boundary is missing? 
-            // Actually, multer ignores non-multipart requests mostly, or handles text fields if we don't send file.
-            // But to be safe and simple with existing backend, let's send FormData.
+            const name = e.target.name.value;
+            const phone = e.target.phone.value;
 
             try {
-                // We add a dummy field if needed, or just send valid body.
-                // Endpoint: /api/patients
-                const res = await fetch('/api/patients', {
+                const res = await fetch('/api/public/register', {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, name, phone })
                 });
 
                 if (res.ok) {
@@ -145,7 +171,7 @@
                     `;
                 } else {
                     const err = await res.json();
-                    alert('Erro ao enviar: ' + (err.error || 'Tente novamente.'));
+                    alert('Erro: ' + (err.error || 'Tente novamente.'));
                     btn.textContent = originalText;
                     btn.disabled = false;
                 }

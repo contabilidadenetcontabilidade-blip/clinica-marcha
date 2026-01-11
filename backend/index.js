@@ -811,6 +811,71 @@ app.delete('/api/houses/photos/:id', async (req, res) => {
   }
 });
 
+// =============== INVITE SYSTEM (NEW) ==================
+const crypto = require('crypto');
+
+app.post('/api/invites', async (req, res) => {
+  try {
+    const token = crypto.randomBytes(16).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await pool.query("INSERT INTO invite_tokens (token, expires_at) VALUES ($1, $2)", [token, expiresAt]);
+    res.json({ token, expiresAt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/invites/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const result = await pool.query("SELECT * FROM invite_tokens WHERE token = $1 AND is_active = TRUE", [token]);
+
+    if (result.rowCount === 0) return res.status(404).json({ valid: false, message: 'Link inválido' });
+
+    const invite = result.rows[0];
+    if (new Date() > new Date(invite.expires_at)) {
+      return res.status(400).json({ valid: false, message: 'Link expirado' });
+    }
+
+    res.json({ valid: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/public/register', async (req, res) => {
+  const { token, name, phone } = req.body;
+
+  try {
+    // Validate Token
+    const invRes = await pool.query("SELECT * FROM invite_tokens WHERE token = $1 AND is_active = TRUE", [token]);
+    if (invRes.rowCount === 0) return res.status(400).json({ error: "Link inválido" });
+
+    const invite = invRes.rows[0];
+    if (new Date() > new Date(invite.expires_at)) {
+      return res.status(400).json({ error: "Link expirado" });
+    }
+
+    // Create Patient
+    const result = await pool.query(`
+            INSERT INTO patients (name, phone, type, role, active, created_at)
+            VALUES ($1, $2, 'Cliente', 'cliente', 1, CURRENT_TIMESTAMP) RETURNING id
+        `, [name, phone]);
+
+    // Invalidate Token? No, user implied singular link generation but multiple uses? 
+    // "Toda vez que ela clicar, um novo token...". Usually invite links are unique per user OR generic.
+    // If it's for "a new client", usually unique. If multiple use, keep it. 
+    // User said: "onde ele preencherá... e os dados deste cliente aparecerá". 
+    // User also said: "Link de Cadastro (24h)". Usually implies a generic link valid for 24h for ANYONE.
+    // If it was one-time, I'd invalidate it. I'll keep it valid for 24h for simplicity/generic usage unless specified.
+
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Backend rodando na porta ${port}`);
 });

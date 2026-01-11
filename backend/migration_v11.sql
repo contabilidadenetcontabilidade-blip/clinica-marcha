@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS invite_tokens (
+    token VARCHAR(64) PRIMARY KEY,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
