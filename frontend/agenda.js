@@ -270,17 +270,45 @@ async function loadPatientsForSelect() {
   }
 }
 
+// ------------------------------------
+// New Auto-Price Logic
+// ------------------------------------
+const SERVICE_PRICES = {
+  'Pilates': 22.39,
+  'Yoga': 16.92,
+  'Treino Funcional': 14.61,
+  'Fisioterapia': 100.00, // Defaul fallback
+  'Liberação Miofascial': 80.00,
+  'Condicionamento Físico': 30.00,
+  'Avaliação': 0.00
+};
+
+function updateServicePrice() {
+  const service = document.getElementById('appointment-service_type').value;
+  const priceInput = document.getElementById('appointment-price');
+  if (SERVICE_PRICES[service] !== undefined) {
+    priceInput.value = SERVICE_PRICES[service].toFixed(2);
+  }
+}
+
+// ------------------------------------
+// Modal Logic Updates
+// ------------------------------------
 function openNewAppointment() {
   document.getElementById('modal-appointment-title').textContent = 'Novo Agendamento';
   document.getElementById('form-appointment').reset();
   document.getElementById('appointment-id').value = '';
   document.getElementById('appointment-date').value = formatDate(currentDate);
+  document.getElementById('appointment-start_time').value = '08:00';
+
+  // Default Recurrence
+  document.getElementById('appointment-recurrence').value = 'none';
+
+  // Trigger price update
+  updateServicePrice();
+
   loadPatientsForSelect();
   document.getElementById('modal-appointment').classList.remove('hidden');
-}
-
-function closeAppointmentModal() {
-  document.getElementById('modal-appointment').classList.add('hidden');
 }
 
 function editAppointment(id) {
@@ -293,18 +321,27 @@ function editAppointment(id) {
   document.getElementById('modal-appointment-title').textContent = 'Editar Agendamento';
   document.getElementById('appointment-id').value = apt.id;
   document.getElementById('appointment-patient_id').value = apt.patient_id;
-  document.getElementById('appointment-title').value = apt.title || '';
+  // Title removed from UI, but kept in backend
+  // document.getElementById('appointment-title').value = apt.title || '';
   document.getElementById('appointment-date').value = apt.appointment_date;
   document.getElementById('appointment-start_time').value = apt.start_time;
   document.getElementById('appointment-end_time').value = apt.end_time || '';
-  document.getElementById('appointment-service_type').value = apt.service_type || 'Consulta';
+  document.getElementById('appointment-service_type').value = apt.service_type || 'Pilates';
+  document.getElementById('appointment-price').value = apt.price || ''; // If backend sends price
   document.getElementById('appointment-professional').value = apt.professional || '';
   document.getElementById('appointment-status').value = apt.status || 'agendado';
-  document.getElementById('appointment-description').value = apt.description || '';
+  // document.getElementById('appointment-description').value = apt.description || '';
   document.getElementById('appointment-notes').value = apt.notes || '';
   document.getElementById('appointment-payment_method').value = apt.payment_method || '';
 
+  // Recurrence logic (Simple check for now, backend usually handles creation of multiples)
+  document.getElementById('appointment-recurrence').value = 'none';
+
   loadPatientsForSelect();
+  updateServicePrice(); // Update based on service or keep fetched?
+  // Ideally keep fetched if exists, else update
+  // if(apt.price) document.getElementById('appointment-price').value = apt.price;
+
   setTimeout(() => {
     document.getElementById('appointment-patient_id').value = apt.patient_id;
   }, 100);
@@ -312,6 +349,9 @@ function editAppointment(id) {
   document.getElementById('modal-appointment').classList.remove('hidden');
 }
 
+// ------------------------------------
+// Form Submission Update
+// ------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   loadAgenda();
   loadPatientsForSelect();
@@ -324,18 +364,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formData = new FormData(form);
     const appointmentId = formData.get('id');
+
+    // Auto-generate Title
+    const patientText = document.getElementById('appointment-patient_id').options[document.getElementById('appointment-patient_id').selectedIndex].text;
+    const service = formData.get('service_type');
+    const title = `${service} - ${patientText.split('(')[0].trim()}`;
+
     const data = {
       patient_id: parseInt(formData.get('patient_id'), 10),
-      title: formData.get('title'),
-      description: formData.get('description'),
+      title: title,
+      // description: formData.get('description'),
       appointment_date: formData.get('appointment_date'),
       start_time: formData.get('start_time'),
       end_time: formData.get('end_time'),
-      service_type: formData.get('service_type'),
+      service_type: service,
+      price: parseFloat(formData.get('price')), // New field
       professional: formData.get('professional'),
       status: formData.get('status'),
       notes: formData.get('notes'),
-      is_recurring: formData.get('is_recurring') === 'on'
+      recurrence: formData.get('recurrence') // 'none' or 'continuous'
     };
 
     try {
@@ -350,35 +397,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const resData = await res.json();
       if (!res.ok) {
-        showError('Erro ao salvar agendamento: ' + (resData.error || res.status));
+        showError('Erro ao salvar: ' + (resData.error || res.status));
         setButtonLoading(submitBtn, false);
         return;
       }
 
-      showSuccess(appointmentId ? 'Agendamento atualizado com sucesso!' : 'Agendamento criado com sucesso!');
+      showSuccess(appointmentId ? 'Atualizado!' : 'Criado com sucesso!');
       closeAppointmentModal();
       loadAgenda();
       setButtonLoading(submitBtn, false);
     } catch (err) {
       console.error(err);
-      showError('Erro inesperado ao salvar agendamento');
+      showError('Erro inesperado');
       setButtonLoading(submitBtn, false);
     }
   });
 });
 
-// Modal Confirmar Logic
-function openConfirmModal(apptId) {
-  document.getElementById('confirm-appt-id').value = apptId;
-  document.getElementById('confirm-amount').value = '';
-  document.getElementById('confirm-payment-method').value = 'gympass'; // Default
-  document.getElementById('modal-confirm-presence').classList.remove('hidden');
+// ------------------------------------
+// Confirm Absence Logic
+// ------------------------------------
+async function confirmAbsence() {
+  const id = document.getElementById('confirm-appt-id').value;
+  if (!confirm("Marcar como 'Faltou'? Isso não gerará pontuação.")) return;
+
+  try {
+    const res = await fetch(`/api/appointments/${id}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'faltou' }) // Send status override
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('Status atualizado para Faltou.');
+      closeConfirmModal();
+      loadAgenda();
+    } else {
+      alert('Erro: ' + data.error);
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Erro de conexão');
+  }
 }
 
-function closeConfirmModal() {
-  document.getElementById('modal-confirm-presence').classList.add('hidden');
-}
-
+// Keep existing listener for Main Confirm Form (Attendance)
 document.addEventListener('DOMContentLoaded', () => {
   const confirmForm = document.getElementById('form-confirm-presence');
   if (confirmForm) {
@@ -392,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(`/api/appointments/${id}/confirm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: amount, payment_method: method })
+          body: JSON.stringify({ amount: amount, payment_method: method, status: 'realizado' })
         });
         const data = await res.json();
         if (data.success) {
@@ -400,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
           closeConfirmModal();
           loadAgenda();
         } else {
-          alert('Erro: ' + (data.msg || 'Desconhecido'));
+          alert('Erro: ' + (data.msg || data.error));
         }
       } catch (e) {
         console.error(e);

@@ -17,9 +17,10 @@
             font-family: 'Inter', sans-serif;
             height: 100vh;
             display: flex;
-            background: #121212;
-            /* Dark background */
-            color: #fff;
+            background: #ffffff;
+            /* White bg */
+            color: #192C46;
+            /* Navy text */
             overflow: hidden;
         }
 
@@ -36,7 +37,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: #000;
+            background: #ffffff;
+            /* White background */
             position: relative;
             overflow: hidden;
         }
@@ -44,12 +46,13 @@
         .carousel-wrapper {
             position: relative;
             width: 350px;
-            /* Reel aspect ratio ish */
             height: 620px;
             border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-            border: 2px solid #333;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            /* Lighter shadow */
+            border: none;
+            /* Removed border */
         }
 
         .reel-frame {
@@ -57,8 +60,7 @@
             height: 100%;
             border: none;
             display: none;
-            /* Hidden by default */
-            background: #000;
+            background: #fff;
         }
 
         .reel-frame.active {
@@ -66,7 +68,7 @@
             animation: fadeIn 0.5s ease;
         }
 
-        /* Carousel Controls (optional or auto) */
+        /* Carousel Controls */
         .carousel-indicators {
             position: absolute;
             bottom: 20px;
@@ -80,60 +82,42 @@
         .indicator {
             width: 10px;
             height: 10px;
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(25, 44, 70, 0.2);
+            /* Navy transparent */
             border-radius: 50%;
             cursor: pointer;
             transition: background 0.3s;
         }
 
         .indicator.active {
-            background: var(--gold);
+            background: var(--navy);
+            /* Navy Active */
         }
 
-        /* Right: Login Form (Glassmorphism) */
+        /* Right: Login Form (Clean White) */
         .login-section {
             flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
+            background: #f5f7fa;
+            /* Very light gray/white */
             position: relative;
         }
 
-        /* Decorative circles */
+        /* No more glass decor needed for clean white look, or minimal */
         .glass-decor {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.4;
-        }
-
-        .decor-1 {
-            width: 300px;
-            height: 300px;
-            background: var(--gold);
-            top: 10%;
-            right: 10%;
-        }
-
-        .decor-2 {
-            width: 400px;
-            height: 400px;
-            background: var(--navy);
-            bottom: 10%;
-            left: 10%;
+            display: none;
         }
 
         .login-card {
-            background: rgba(255, 255, 255, 0.05);
+            background: #ffffff;
             padding: 50px;
             border-radius: 24px;
             width: 100%;
             max-width: 420px;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.05);
             z-index: 2;
             text-align: center;
         }
@@ -141,7 +125,7 @@
         .login-logo {
             width: 100px;
             margin-bottom: 30px;
-            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
+            /* filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3)); Removed glow */
         }
 
         .form-group {
@@ -152,47 +136,52 @@
         .form-group label {
             display: block;
             margin-bottom: 8px;
-            color: #ccc;
+            color: var(--navy);
+            /* Blue Text */
             font-size: 0.9em;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .form-group input {
             width: 100%;
             padding: 15px;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #f0f4f8;
+            /* Light gray input */
+            border: 1px solid #d1d9e6;
             border-radius: 12px;
-            color: white;
+            color: var(--navy);
             font-size: 16px;
             outline: none;
             transition: border-color 0.3s;
         }
 
         .form-group input:focus {
-            border-color: var(--gold);
+            border-color: var(--accent);
+            background: #fff;
         }
 
         .btn-login {
             width: 100%;
             padding: 15px;
-            background: linear-gradient(90deg, var(--gold) 0%, #e6be00 100%);
-            color: var(--navy);
+            background: var(--navy);
+            /* Blue Button */
+            color: #ffffff;
             border: none;
             border-radius: 12px;
             font-size: 16px;
             font-weight: 800;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
         }
 
         .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(255, 215, 0, 0.2);
+            box-shadow: 0 10px 20px rgba(25, 44, 70, 0.2);
+            background: var(--navy-dark);
         }
 
         .error-msg {
-            color: #ff6b6b;
+            color: #ef4444;
             margin-top: 15px;
             font-size: 0.9em;
             min-height: 20px;
@@ -256,8 +245,8 @@
 
             <div class="login-card">
                 <img src="../assets/logo_marcha.png" alt="Marcha Logo" class="login-logo">
-                <h2 style="color: white; margin-bottom: 10px;">Bem-vindo</h2>
-                <p style="color: #888; margin-bottom: 30px; font-size: 0.9em;">Acesse sua conta para continuar</p>
+                <h2 style="color: var(--navy); margin-bottom: 10px;">Bem-vindo</h2>
+                <p style="color: #666; margin-bottom: 30px; font-size: 0.9em;">Acesse sua conta para continuar</p>
 
                 <form id="login-form">
                     <div class="form-group">

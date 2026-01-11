@@ -38,7 +38,8 @@
 
     <!-- 1. Summary Cards -->
     <div class="summary-cards">
-      <div class="card summary-card-dashboard">
+      <div class="card summary-card-dashboard" onclick="window.location.href='financeiro.html'"
+        style="cursor: pointer;">
         <div class="icon-bg">💰</div>
         <div>
           <h3>Faturamento (Mês)</h3>
@@ -46,7 +47,7 @@
           <span class="subtext">Receitas confirmadas</span>
         </div>
       </div>
-      <div class="card summary-card-dashboard">
+      <div class="card summary-card-dashboard" onclick="window.location.href='pacientes.html'" style="cursor: pointer;">
         <div class="icon-bg">👥</div>
         <div>
           <h3>Clientes Ativos</h3>
@@ -54,7 +55,7 @@
           <span class="subtext">Cadastrados e ativos</span>
         </div>
       </div>
-      <div class="card summary-card-dashboard">
+      <div class="card summary-card-dashboard" onclick="window.location.href='cup.html'" style="cursor: pointer;">
         <div class="icon-bg">🏆</div>
         <div>
           <h3>Líder Marcha Cup</h3>
@@ -67,7 +68,7 @@
     <!-- 2. Charts & Ranking Grid -->
     <div class="dashboard-grid">
       <!-- Finance Pie Chart -->
-      <div class="card chart-card">
+      <div class="card chart-card" onclick="window.location.href='financeiro.html'" style="cursor: pointer;">
         <h3>Receitas vs. Despesas</h3>
         <div class="chart-container">
           <canvas id="financePieChart"></canvas>

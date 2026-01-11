@@ -511,31 +511,105 @@ app.get('/api/appointments', async (req, res) => {
 });
 
 app.post('/api/appointments', async (req, res) => {
-  const { patient_id, title, appointment_date, start_time, service_type } = req.body;
+  const { patient_id, title, appointment_date, start_time, service_type, price, recurrence } = req.body;
+
+  // Use price from body or default to 100 if null
+  const amount = price !== undefined ? price : 100.00;
+
   try {
-    const result = await pool.query(`
+    const datesToCreate = [appointment_date];
+
+    // Continuous Recurrence Logic (12 weeks)
+    if (recurrence === 'continuous') {
+      const baseDate = new Date(appointment_date);
+      for (let i = 1; i < 12; i++) {
+        const nextDate = new Date(baseDate);
+        nextDate.setDate(baseDate.getDate() + (i * 7));
+        datesToCreate.push(nextDate.toISOString().split('T')[0]);
+      }
+    }
+
+    const createdIds = [];
+
+    for (const dt of datesToCreate) {
+      const result = await pool.query(`
             INSERT INTO appointments (patient_id, title, appointment_date, start_time, service_type)
             VALUES ($1, $2, $3, $4, $5) RETURNING id
-        `, [patient_id, title, appointment_date, start_time, service_type]);
+        `, [patient_id, title, dt, start_time, service_type]);
 
-    // Auto-create Financial (Simple Logic)
-    await pool.query(`
+      const appId = result.rows[0].id;
+      createdIds.push(appId);
+
+      // Auto-create Financial
+      await pool.query(`
             INSERT INTO financial_transactions (type, category, description, amount, due_date, patient_id, appointment_id, created_at)
-            VALUES ('receita', 'consulta', $1, 100.00, $2, $3, $4, CURRENT_TIMESTAMP)
-        `, [`Aula ${title}`, appointment_date, patient_id, result.rows[0].id]);
+            VALUES ('receita', 'consulta', $1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        `, [`${service_type} - ${title}`, amount, dt, patient_id, appId]);
+    }
 
-    res.json({ id: result.rows[0].id });
+    res.json({ id: createdIds[0], count: createdIds.length });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
 app.post('/api/appointments/:id/confirm', async (req, res) => {
   const id = req.params.id;
+  const { status, amount } = req.body; // status can be 'realizado' or 'faltou'
+
   try {
     await pool.query("BEGIN");
-    await pool.query("UPDATE appointments SET status = 'realizado' WHERE id = $1", [id]);
-    await pool.query("UPDATE financial_transactions SET payment_date = CURRENT_DATE WHERE appointment_id = $1", [id]);
+
+    // Update Status
+    const newStatus = status || 'realizado';
+    await pool.query("UPDATE appointments SET status = $1 WHERE id = $2", [newStatus, id]);
+
+    // Handle Financials
+    if (newStatus === 'realizado') {
+      // Confirm payment
+      // If amount was edited in confirmation modal, update it? 
+      // For now, simpler to just set payment date. Logic can be improved to update amount.
+      if (amount) {
+        await pool.query("UPDATE financial_transactions SET payment_date = CURRENT_DATE, amount = $1 WHERE appointment_id = $2", [amount, id]);
+      } else {
+        await pool.query("UPDATE financial_transactions SET payment_date = CURRENT_DATE WHERE appointment_id = $1", [id]);
+      }
+
+      // --- GAMIFICATION SCORING (MARCHA CUP) ---
+      // 1. Get Patient ID from appointment
+      const appRes = await pool.query("SELECT patient_id FROM appointments WHERE id = $1", [id]);
+      if (appRes.rowCount > 0) {
+        const pid = appRes.rows[0].patient_id;
+        // 2. Check if Athlete
+        const athRes = await pool.query("SELECT id FROM athletes WHERE patient_id = $1", [pid]);
+        if (athRes.rowCount > 0) {
+          // 3. Add Score (Rule 1 = Presença = 10pts)
+          // Assuming Rule ID 1 exists and is for "Presença"
+          // Ideally look up rule by name 'Presença'
+          const rRes = await pool.query("SELECT id FROM scoring_rules WHERE name = 'Presença' LIMIT 1");
+          let ruleId = rRes.rowCount > 0 ? rRes.rows[0].id : null;
+
+          // If rule doesn't exist, create it? Or skip.
+          if (!ruleId) {
+            const nr = await pool.query("INSERT INTO scoring_rules (name, value) VALUES ('Presença', 10) RETURNING id");
+            ruleId = nr.rows[0].id;
+          }
+
+          await pool.query("INSERT INTO scores (athlete_id, rule_id) VALUES ($1, $2)", [athRes.rows[0].id, ruleId]);
+        }
+      }
+      // ----------------------------------------
+
+    } else if (newStatus === 'faltou') {
+      // If absent, do we delete the financial record? Or leave it as 'pendente'?
+      // Usually absence might charge or not. User didn't specify.
+      // Let's assume 'faltou' means NO REVENUE confirmed yet. It stays open or cancelled?
+      // Let's keep it pending so admin can decide to delete or charge later.
+      // Or if strictly 'faltou' = loss of revenue?
+      // Safest: Do nothing to finance, just update status.
+    }
+
     await pool.query("COMMIT");
     res.json({ success: true });
   } catch (err) {
