@@ -169,7 +169,10 @@ function editPatient(id) {
   document.getElementById('modal-patient-title').textContent = 'Editar - Clínica Marcha';
   document.getElementById('patient-id').value = patient.id;
   document.getElementById('patient-name').value = patient.name || '';
-  document.getElementById('patient-type').value = patient.type || 'Paciente';
+  // Check if type element exists (it might be hidden without ID)
+  const typeInput = document.getElementById('patient-type') || document.querySelector('input[name="type"]');
+  if (typeInput) typeInput.value = patient.type || 'Paciente';
+
   document.getElementById('patient-cpf').value = patient.cpf || '';
   document.getElementById('patient-username').value = patient.username || '';
 
