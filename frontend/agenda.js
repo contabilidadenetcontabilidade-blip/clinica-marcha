@@ -522,5 +522,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Modal Control Functions
+function closeAppointmentModal() {
+  document.getElementById('modal-appointment').classList.add('hidden');
+}
+
+function openConfirmModal(id) {
+  document.getElementById('confirm-appt-id').value = id;
+  const apt = currentAppointments.find(a => a.id === id);
+  if (apt && apt.price) {
+    document.getElementById('confirm-amount').value = apt.price;
+  }
+  document.getElementById('modal-confirm-presence').classList.remove('hidden');
+}
+
+function closeConfirmModal() {
+  document.getElementById('modal-confirm-presence').classList.add('hidden');
+}
+
 
 
