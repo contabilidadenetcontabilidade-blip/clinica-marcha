@@ -42,6 +42,21 @@
       </div>
       <p class="hint">Escolha o atleta e a categoria de pontuação.</p>
     </section>
+
+    <!-- Gallery Section -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Galeria da Casa</h2>
+        <div id="gallery-controls" style="display: none;"> <!-- Visible only to Admin -->
+          <input type="file" id="gallery-upload" accept="image/*" style="display: none;"
+            onchange="uploadGalleryPhoto(this)">
+          <button onclick="document.getElementById('gallery-upload').click()">+ Adicionar Foto</button>
+        </div>
+      </div>
+      <div id="gallery-grid" class="gallery-grid">
+        <p style="color:#666; width:100%;">Carregando fotos...</p>
+      </div>
+    </section>
   </main>
 
   <!-- Modal novo atleta -->

@@ -97,9 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const finLinks = document.querySelectorAll('a[href="financeiro.html"]');
     finLinks.forEach(link => link.style.display = 'none');
 
-    // Hide Professionals link (if any link points to it, though usually manual)
+    // Hide Professionals link
     const profLinks = document.querySelectorAll('a[href="profissionais.html"]');
     profLinks.forEach(link => link.style.display = 'none');
+
+    // Hide Patients link (Requested)
+    const patLinks = document.querySelectorAll('a[href="pacientes.html"]');
+    patLinks.forEach(link => link.style.display = 'none');
   }
 });
 

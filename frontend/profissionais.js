@@ -46,11 +46,10 @@ async function loadProfessionals() {
     list.innerHTML = 'Carregando...';
 
     try {
-        const res = await fetch('/api/patients'); // Fetches all, we filter client side or backend?
-        // Backend search doesn't support role filter yet. I should have added it.
-        // I'll filter client side for now.
-        const all = await res.json();
-        const fisios = all.filter(p => p.role === 'fisio' || p.type === 'Fisioterapeuta'); // Filter by role
+        const res = await fetch('/api/professionals'); // Fetches correctly filtered list
+        // Backend now handles filtering.
+        const fisios = await res.json();
+        // const fisios = all.filter(p => p.role === 'fisio' || p.type === 'Fisioterapeuta'); // Filter by role (Backend does this now)
 
         list.innerHTML = '';
         if (fisios.length === 0) {

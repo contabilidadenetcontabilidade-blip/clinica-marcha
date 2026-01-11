@@ -105,7 +105,11 @@ async function initializeDB() {
     const migration = fs.readFileSync(path.join(__dirname, 'migration_v9.sql'), 'utf8');
     await pgPool.query(migration);
 
-    console.log("✅ Banco de dados PostgreSQL inicializado e verificado (V9 Migrated).");
+    // V10 Migration
+    const migration10 = fs.readFileSync(path.join(__dirname, 'migration_v10.sql'), 'utf8');
+    await pgPool.query(migration10);
+
+    console.log("✅ Banco de dados PostgreSQL inicializado e verificado (V10 Migrated).");
   } catch (err) {
     console.error("❌ Erro na inicialização do DB (PG):", err.message);
   }

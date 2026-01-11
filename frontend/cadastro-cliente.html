@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - Clínica Marcha</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .register-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        .logo {
+            width: 80px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: var(--navy);
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--navy);
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 15px;
+            background: var(--navy);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-submit:hover {
+            background: var(--navy-dark);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="register-card">
+        <img src="../assets/logo_marcha.png" alt="Logo Marcha" class="logo">
+        <h2>Bem-vindo à Marcha!</h2>
+        <p>Preencha seus dados para iniciarmos seu cadastro.</p>
+
+        <form id="public-register-form">
+            <input type="hidden" name="type" value="Cliente">
+            <input type="hidden" name="role" value="cliente">
+
+            <div class="form-group">
+                <label>Nome Completo *</label>
+                <input type="text" name="name" required placeholder="Digite seu nome completo">
+            </div>
+
+            <div class="form-group">
+                <label>Telefone / WhatsApp *</label>
+                <input type="tel" name="phone" required placeholder="(DDD) 99999-9999">
+            </div>
+
+            <button type="submit" class="btn-submit">Enviar Cadastro</button>
+        </form>
+    </div>
+
+    <script src="utils.js"></script>
+    <script>
+        document.getElementById('public-register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.textContent;
+            btn.textContent = 'Enviando...';
+            btn.disabled = true;
+
+            const formData = new FormData(e.target);
+            // Public route usually doesn't need file upload, so JSON is fine, 
+            // but backend endpoint `/api/patients` uses `upload.single('photo')` middleware.
+            // If we send JSON, multer might complain if boundary is missing? 
+            // Actually, multer ignores non-multipart requests mostly, or handles text fields if we don't send file.
+            // But to be safe and simple with existing backend, let's send FormData.
+
+            try {
+                // We add a dummy field if needed, or just send valid body.
+                // Endpoint: /api/patients
+                const res = await fetch('/api/patients', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (res.ok) {
+                    document.querySelector('.register-card').innerHTML = `
+                        <div style="text-align: center; color: var(--success);">
+                            <h1 style="font-size: 4rem; margin:0;">✅</h1>
+                            <h2>Cadastro Realizado!</h2>
+                            <p>Obrigado. Em breve nossa equipe entrará em contato.</p>
+                        </div>
+                    `;
+                } else {
+                    const err = await res.json();
+                    alert('Erro ao enviar: ' + (err.error || 'Tente novamente.'));
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Erro de conexão.');
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>
