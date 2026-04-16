@@ -1,12 +1,37 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
   <meta charset="UTF-8">
   <title>Casa - Marcha Cup</title>
   <link rel="stylesheet" href="casa_detalhe.css">
+  <style>
+    .message-bubble {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+      position: relative;
+    }
+    .message-bubble.deleted {
+      background-color: #f0f0f0;
+      opacity: 0.6;
+    }
+    .btn-delete {
+      background-color: #ff4444;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      margin-left: 10px;
+      float: right;
+    }
+    .btn-delete:hover {
+      background-color: #cc0000;
+    }
+  </style>
 </head>
-
 <body>
   <header class="topbar">
     <button class="back-btn" onclick="window.location.href='cup.html'">←</button>
@@ -18,48 +43,47 @@
       <img id="house-crest" class="house-crest-big" src="" alt="Brasão">
       <div class="house-info">
         <h1 id="house-name"></h1>
-        <p class="total-points">
-          Pontos totais: <span id="total-points">0</span>
-        </p>
-        <p class="best-category">
-          Melhor categoria: <span id="best-category">–</span>
-        </p>
+        <p class="total-points">Pontos totais: <span id="total-points">0</span></p>
+        <p class="best-category">Melhor categoria: <span id="best-category">–</span></p>
       </div>
     </section>
 
-    <section class="card">
-      <div class="card-header">
-        <h2>Ranking de Atletas</h2>
-        <button onclick="openAddAthlete()">+ Atleta</button>
-      </div>
-      <ul id="athletes-list"></ul>
-    </section>
+    <nav class="main-tabs">
+      <button id="main-tab-dashboard" class="main-tab-btn active" onclick="switchMainTab('dashboard')">📊 Ranking</button>
+      <button id="main-tab-chat" class="main-tab-btn" onclick="switchMainTab('chat')">💬 Chat</button>
+    </nav>
 
-    <section class="card">
-      <div class="card-header">
-        <h2>Registrar Pontos</h2>
-        <button onclick="openAddScore()">+ Pontos</button>
-      </div>
-      <p class="hint">Escolha o atleta e a categoria de pontuação.</p>
-    </section>
+    <div id="section-dashboard">
+      <section class="card">
+        <div class="card-header">
+          <h2>Ranking de Atletas</h2>
+          <button onclick="openAddAthlete()">+ Atleta</button>
+        </div>
+        <ul id="athletes-list"></ul>
+      </section>
 
-    <!-- Gallery Section -->
-    <section class="card">
-      <div class="card-header">
-        <h2>Galeria da Casa</h2>
-        <div id="gallery-controls" style="display: none;"> <!-- Visible only to Admin -->
-          <input type="file" id="gallery-upload" accept="image/*" style="display: none;"
-            onchange="uploadGalleryPhoto(this)">
-          <button onclick="document.getElementById('gallery-upload').click()">+ Adicionar Foto</button>
+      <section class="card">
+        <div class="card-header">
+          <h2>Ações da Casa</h2>
+          <button onclick="openAddScore()" style="background: var(--gold, #FFD700); color: #000; font-weight: bold; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">+ Pontos / 🃏Poder</button>
+        </div>
+        <p style="color:var(--text-secondary,#aaa);font-size:0.85rem;margin-top:10px;">Distribua pontos, aplique regras e conceda as cartas.</p>
+      </section>
+    </div>
+
+    <div id="section-chat" class="hidden">
+      <div class="chat-container">
+        <div id="chat-messages" class="chat-messages">
+          <p style="text-align:center; color:#888;">Carregando...</p>
+        </div>
+        <div class="chat-input-area">
+          <input type="text" id="chat-input" placeholder="Digite..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+          <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
         </div>
       </div>
-      <div id="gallery-grid" class="gallery-grid">
-        <p style="color:#666; width:100%;">Carregando fotos...</p>
-      </div>
-    </section>
+    </div>
   </main>
 
-  <!-- Modal novo atleta -->
   <div id="modal-athlete" class="modal hidden">
     <div class="modal-content">
       <h3>Novo Atleta</h3>
@@ -72,28 +96,341 @@
     </div>
   </div>
 
-  <!-- Modal registrar pontos -->
+  <!-- Modal registrar pontos / conceder poder -->
   <div id="modal-score" class="modal hidden">
     <div class="modal-content">
-      <h3>Registrar Pontos</h3>
-      <form id="form-score">
-        <label>Atleta:</label>
-        <select name="athlete_id" id="select-athlete" required></select>
+      <!-- Abas -->
+      <div style="display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid #333;">
+        <button id="tab-pontos" onclick="switchTab('pontos')"
+          style="flex:1; padding:10px; background:#1a1a3e; color:#FFD700; border:none; cursor:pointer; font-weight:bold; border-bottom:2px solid #FFD700;">
+          📊 Registrar Pontos
+        </button>
+        <button id="tab-carta" onclick="switchTab('carta')"
+          style="flex:1; padding:10px; background:#0a0a2e; color:#aaa; border:none; cursor:pointer; font-weight:bold;">
+          🃏 Conceder Poder
+        </button>
+        <button id="tab-batalha" onclick="switchTab('batalha')"
+          style="flex:1; padding:10px; background:#0a0a2e; color:#aaa; border:none; cursor:pointer; font-weight:bold;">
+          ⚔️ Batalha
+        </button>
+      </div>
 
-        <label>Categoria / Regra:</label>
-        <select name="rule_id" id="select-rule" required></select>
+      <!-- Aba Pontos -->
+      <div id="content-pontos">
+        <form id="form-score">
+          <label style="display:block;margin-bottom:4px;">Atleta:</label>
+          <select name="athlete_id" id="select-athlete" required style="width:100%; margin-bottom:12px; padding:8px; border-radius:4px; border:1px solid #333; background:#222; color:#fff;"></select>
+          <label style="display:block;margin-bottom:4px;">Categoria / Regra:</label>
+          <select name="rule_id" id="select-rule" required style="width:100%; margin-bottom:12px; padding:8px; border-radius:4px; border:1px solid #333; background:#222; color:#fff;"></select>
+          <button type="submit" style="width:100%; margin-bottom:8px; background:var(--gold, #FFD700); color:#000; font-weight:bold; padding:10px; border-radius:4px; border:none; cursor:pointer;">Registrar</button>
+          <button type="button" onclick="closeAddScore()" style="width:100%; padding:10px; border-radius:4px; border:none; background:#444; color:#fff; cursor:pointer;">Cancelar</button>
+        </form>
+      </div>
 
-        <button type="submit">Registrar</button>
-        <button type="button" onclick="closeAddScore()">Cancelar</button>
-      </form>
-      <p class="hint-small">
-        * Para criar novas categorias de pontuação, use a tela de <a href="regras.html">Regras</a>.
-      </p>
+      <!-- Aba Conceder Poder -->
+      <div id="content-carta" style="display:none;">
+        <label style="display:block;margin-bottom:4px;">Atleta:</label>
+        <select id="grant-athlete-select" style="width:100%; margin-bottom:12px; padding:8px; border-radius:4px; border:1px solid #333; background:#222; color:#fff;"></select>
+        <label style="display:block;margin-bottom:4px;">Raridade:</label>
+        <select id="grant-rarity-select" onchange="loadCardsByRarity()" style="width:100%; margin-bottom:12px; padding:8px; border-radius:4px; border:1px solid #333; background:#222; color:#fff;">
+          <option value="">Selecione a raridade...</option>
+          <option value="Comum">Comum</option>
+          <option value="Rara">Rara</option>
+          <option value="Épica">Épica</option>
+          <option value="Lendária">Lendária</option>
+        </select>
+        <label style="display:block;margin-bottom:4px;">Carta:</label>
+        <select id="grant-card-select" style="width:100%; margin-bottom:12px; padding:8px; border-radius:4px; border:1px solid #333; background:#222; color:#fff;">
+          <option value="">Selecione a raridade primeiro...</option>
+        </select>
+        <div id="grant-card-description" style="background:#0a0a2e; padding:10px; border-radius:6px; color:#aaa; font-size:0.9rem; margin-bottom:12px; min-height:40px;"></div>
+        <button onclick="grantCard()" style="width:100%; background:#7b1fa2; color:#fff; border:none; padding:12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:1rem;">✨ Conceder Poder Mágico</button>
+        <button type="button" onclick="closeAddScore()" style="width:100%; margin-top:8px; background:#333; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer;">Cancelar</button>
+      </div>
+
+      <!-- Aba Campo de Batalha -->
+      <div id="content-batalha" style="display:none;">
+        <p style="color:#aaa; margin-bottom:12px; font-size:0.9rem;">
+          Lance um Campo de Batalha para o atleta.
+        </p>
+        <label style="display:block;margin-bottom:4px;">Atleta:</label>
+        <select id="batalha-athlete-select" style="width:100%; margin-bottom:16px; padding:8px; border-radius:4px; border:1px solid #333; background:#222; color:#fff;"></select>
+        <button onclick="grantCampoBatalha()" style="width:100%; background:#7b1fa2; color:#fff; border:none; padding:12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:1rem;">⚔️ Lançar Campo de Batalha</button>
+        <button type="button" onclick="closeAddScore()" style="width:100%; margin-top:8px; background:#333; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer;">Cancelar</button>
+      </div>
     </div>
   </div>
 
-  <script src="utils.js"></script>
   <script src="casa_detalhe.js"></script>
-</body>
+  <script src="utils.js"></script>
+  <script>
+    function switchMainTab(tab) {
+      const dash = document.getElementById('section-dashboard');
+      const chat = document.getElementById('section-chat');
+      if (tab === 'dashboard') {
+        dash.classList.remove('hidden');
+        chat.classList.add('hidden');
+        document.getElementById('main-tab-dashboard').classList.add('active');
+        document.getElementById('main-tab-chat').classList.remove('active');
+      } else {
+        dash.classList.add('hidden');
+        chat.classList.remove('hidden');
+        document.getElementById('main-tab-dashboard').classList.remove('active');
+        document.getElementById('main-tab-chat').classList.add('active');
+        loadChatMessages();
+      }
+    }
 
+    async function loadChatMessages() {
+      if (!HOUSE_ID) return;
+      try {
+        const res = await fetch(`/api/chat/house/${HOUSE_ID}`);
+        const data = await res.json();
+        
+        console.log('HOUSE_ID:', HOUSE_ID);
+        console.log('Resposta do servidor:', data);
+        console.log('Container:', document.getElementById('chat-messages'));
+
+        // Se data contiver erro, tratamos
+        if (data.error) throw new Error(data.error);
+        
+        const messages = data;
+        const cont = document.getElementById('chat-messages');
+        // Fallback: checar formato novo E antigo (compatibilidade)
+        let isAdmin = localStorage.getItem('is_admin') === 'true' || localStorage.getItem('role') === 'admin';
+        if (!isAdmin) {
+          try {
+            const userLegacy = JSON.parse(localStorage.getItem('user') || '{}');
+            isAdmin = userLegacy.role === 'admin';
+          } catch (e) {
+            isAdmin = false;
+          }
+        }
+        
+        if (messages.length === 0) {
+          cont.innerHTML = '<p style="text-align:center; color:#888;">Sem mensagens</p>';
+          return;
+        }
+        
+        cont.innerHTML = '';
+        messages.forEach(msg => {
+          const div = document.createElement('div');
+          div.className = 'message-bubble' + (msg.is_deleted ? ' deleted' : '');
+          
+          let deleteBtn = '';
+          if (isAdmin && !msg.is_deleted) {
+            deleteBtn = `<button class="btn-delete" onclick="deleteMessage(${msg.id})">🗑️ Deletar</button>`;
+          }
+          
+          const messageText = msg.is_deleted ? '<em>[Mensagem deletada]</em>' : msg.message;
+          div.innerHTML = `${deleteBtn}<strong>${msg.sender_name}</strong>: ${messageText}`;
+          cont.appendChild(div);
+        });
+        cont.scrollTop = cont.scrollHeight;
+      } catch (e) {
+        console.error("Erro carregando chat:", e);
+      }
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Buscar patient_id do localStorage (ID mestre corrigido)
+      const patientId = localStorage.getItem('patient_id') || JSON.parse(localStorage.getItem('user') || '{}').id;
+      const houseId = HOUSE_ID || localStorage.getItem('house_id');
+      
+      if (!patientId || !houseId) {
+        alert('❌ Erro: Sessão expirada ou Casa não identificada. Por favor, faça login novamente.');
+        return;
+      }
+      
+      const payload = { 
+        house_id: parseInt(houseId), 
+        patient_id: parseInt(patientId), 
+        message: text 
+      };
+      
+      console.log('📤 Enviando mensagem:', payload);
+
+      try {
+        const res = await fetch('/api/chat/house', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (res.ok) {
+          input.value = '';
+          loadChatMessages();
+        } else {
+          const err = await res.json();
+          console.error('❌ Erro do servidor:', err);
+          alert(err.error || 'Erro: ' + JSON.stringify(err));
+        }
+      } catch (e) {
+        console.error('❌ Erro de conexão:', e);
+        alert('Erro de conexão: ' + e.message);
+      }
+    }
+
+    async function deleteMessage(messageId) {
+      const patientId = localStorage.getItem('patient_id') || JSON.parse(localStorage.getItem('user') || '{}').id;
+      
+      if (!confirm('❓ Tem certeza que deseja deletar esta mensagem?')) return;
+
+      try {
+        const res = await fetch(`/api/chat/messages/${messageId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patient_id: patientId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadChatMessages();
+        } else {
+          alert('Erro ao deletar: ' + (data.error || 'Desconhecido'));
+        }
+      } catch (e) {
+        alert('Erro de conexão ao deletar');
+      }
+    }
+
+    function openAddAthlete() {
+      document.getElementById('modal-athlete').classList.remove('hidden');
+    }
+
+    function closeAddAthlete() {
+      document.getElementById('modal-athlete').classList.add('hidden');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      HOUSE_ID = new URLSearchParams(window.location.search).get('id');
+      if (!HOUSE_ID) {
+        alert('ID inválido');
+        window.location.href = 'cup.html';
+      }
+      loadDashboard();
+      // Se veio com #chat na URL (ex: do portal do aluno), abre o chat automaticamente
+      if (window.location.hash === '#chat') {
+        switchMainTab('chat');
+      }
+    });
+
+    document.getElementById('form-athlete')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = e.target.name.value;
+      try {
+        await fetch('/api/athletes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, house_id: HOUSE_ID })
+        });
+        e.target.reset();
+        closeAddAthlete();
+        loadDashboard();
+      } catch (err) {
+        alert('Erro');
+      }
+    });
+
+    async function switchTab(tab) {
+      document.getElementById('content-pontos').style.display = tab === 'pontos' ? 'block' : 'none';
+      document.getElementById('content-carta').style.display = tab === 'carta' ? 'block' : 'none';
+      document.getElementById('content-batalha').style.display = tab === 'batalha' ? 'block' : 'none';
+
+      document.getElementById('tab-pontos').style.color = tab === 'pontos' ? '#FFD700' : '#aaa';
+      document.getElementById('tab-carta').style.color = tab === 'carta' ? '#FFD700' : '#aaa';
+      document.getElementById('tab-batalha').style.color = tab === 'batalha' ? '#FFD700' : '#aaa';
+
+      document.getElementById('tab-pontos').style.borderBottom = tab === 'pontos' ? '2px solid #FFD700' : 'none';
+      document.getElementById('tab-carta').style.borderBottom = tab === 'carta' ? '2px solid #FFD700' : 'none';
+      document.getElementById('tab-batalha').style.borderBottom = tab === 'batalha' ? '2px solid #FFD700' : 'none';
+      
+      if (tab === 'carta' || tab === 'batalha') {
+        const src = document.getElementById('select-athlete');
+        const dest = tab === 'carta' ? document.getElementById('grant-athlete-select') : document.getElementById('batalha-athlete-select');
+        dest.innerHTML = src.innerHTML;
+      }
+    }
+
+    async function loadCardsByRarity() {
+      const rarity = document.getElementById('grant-rarity-select').value;
+      const cardSelect = document.getElementById('grant-card-select');
+      const descDiv = document.getElementById('grant-card-description');
+      
+      if (!rarity) {
+        cardSelect.innerHTML = '<option value="">Selecione a raridade primeiro...</option>';
+        descDiv.textContent = '';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/cards?rarity=' + encodeURIComponent(rarity));
+        const cards = await res.json();
+        cardSelect.innerHTML = '<option value="">Escolha a carta...</option>';
+        cards.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.name;
+          opt.textContent = c.name;
+          opt.dataset.description = c.description;
+          cardSelect.appendChild(opt);
+        });
+        cardSelect.onchange = () => {
+          const selected = cardSelect.options[cardSelect.selectedIndex];
+          descDiv.textContent = selected.dataset.description || '';
+        };
+      } catch(e) { console.error('Erro ao carregar cartas:', e); }
+    }
+
+    async function grantCard() {
+      const patientId = document.getElementById('grant-athlete-select').value;
+      const cardName = document.getElementById('grant-card-select').value;
+      
+      if (!patientId || !cardName) {
+        alert('Selecione o atleta e a carta.');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/cards/grant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patient_id: parseInt(patientId), card_name: cardName })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert("Poder Concedido COM SUCESSO!");
+          closeAddScore();
+        } else {
+          alert('Erro: ' + (data.error || 'Desconhecido'));
+        }
+      } catch(e) { alert('Erro de conexão.'); }
+    }
+
+    async function grantCampoBatalha() {
+      const patientId = document.getElementById('batalha-athlete-select').value;
+      if (!patientId) { alert('Selecione um atleta.'); return; }
+
+      try {
+        const res = await fetch('/api/campo-batalha/grant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            patient_id: parseInt(patientId),
+            granted_by: null 
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert("Campo Lançado com Sucesso!");
+          closeAddScore();
+        } else {
+          alert('Erro: ' + (data.error || 'Desconhecido'));
+        }
+      } catch(e) { alert('Erro de conexão.'); }
+    }
+  </script>
+</body>
 </html>
