@@ -346,10 +346,10 @@ app.get('/api/athletes/:id/scores', (req, res) => {
 // =============== REGRAS ==================
 
 app.get('/api/rules', (req, res) => {
-  db.all("SELECT * FROM rules", [], (err, rows) => {
+  db.all("SELECT * FROM scoring_rules WHERE active = 1", [], (err, rows) => {
     if (err) {
-      console.error("Erro ao buscar regras:", err);
-      return res.status(500).json({ error: "Erro ao buscar regras" });
+      res.status(500).json({ success: false, error: err.message });
+      return;
     }
     res.json(rows || []);
   });
@@ -2394,31 +2394,53 @@ app.post('/api/admin/import-points', uploadExcel.single('file'), (req, res) => {
             errors.push(`Linha ${idx + 2}: Aluno exato '${nome}' não encontrado.`);
             checkDone();
           } else {
-            // Mapeamento Motivo -> rule_id em rules (agora as regras fixas estão em 'rules')
-            db.get("SELECT id, value FROM rules WHERE name = ?", [motivo], (err, ruleRow) => {
-              const rule_id = ruleRow ? ruleRow.id : 99;
-              const points_to_award = ruleRow ? ruleRow.value : pontos;
+            // Mapeamento Motivo -> rule_id em scoring_rules (canônico; FK em scores aponta para cá)
+            db.get("SELECT id, value FROM scoring_rules WHERE name = ? AND active = 1", [motivo], (err, ruleRow) => {
+              if (err) {
+                errors.push(`Linha ${idx + 2}: Erro ao buscar regra: ${err.message}`);
+                checkDone();
+                return;
+              }
 
-              // Se foi achado um ruleRow, a pontuação enviada pelo usuário na planilha (se diferente) será sobrescrita pela regra,
-              // garantindo assim a restrição: "creditar o valor de pontos associado a essa regra específica".
+              const tryInsert = (resolved) => {
+                const rule_id = resolved ? resolved.id : 99;
+                const points_to_award = resolved ? resolved.value : pontos;
 
-              // O schema de scores mapeia athlete_id REFERENCES patients(id), portanto enviamos patient_id
-              db.run(`INSERT INTO scores (athlete_id, rule_id, points, created_at)
-                      VALUES (?, ?, ?, ?)`,
-                [athlete.patient_id, rule_id, points_to_award, new Date().toISOString()],
-                function(err) {
-                  if (err) { errors.push(`Erro inserindo score para ${nome}: ${err.message}`); checkDone(); return; }
-                  const scoreId = this.lastID;
-                  
-                  // FK direto, não timestamp matching!
-                  db.run(`INSERT INTO house_points_log (house_id, patient_id, score_id, points_awarded, description)
-                          VALUES (?, ?, ?, ?, ?)`,
-                    [athlete.house_id, athlete.patient_id, scoreId, points_to_award, motivo], (err) => {
-                      if (err) errors.push(`Erro inserindo log para ${nome}: ${err.message}`);
-                      else successCount++;
+                // Se foi achado uma regra, a pontuação da planilha pode ser sobrescrita pelo valor da regra.
+
+                db.run(`INSERT INTO scores (athlete_id, rule_id, points, created_at)
+                        VALUES (?, ?, ?, ?)`,
+                  [athlete.patient_id, rule_id, points_to_award, new Date().toISOString()],
+                  function (insertErr) {
+                    if (insertErr) { errors.push(`Erro inserindo score para ${nome}: ${insertErr.message}`); checkDone(); return; }
+                    const scoreId = this.lastID;
+
+                    db.run(`INSERT INTO house_points_log (house_id, patient_id, score_id, points_awarded, description)
+                            VALUES (?, ?, ?, ?, ?)`,
+                      [athlete.house_id, athlete.patient_id, scoreId, points_to_award, motivo], (logErr) => {
+                        if (logErr) errors.push(`Erro inserindo log para ${nome}: ${logErr.message}`);
+                        else successCount++;
+                        checkDone();
+                      });
+                  });
+              };
+
+              if (ruleRow) {
+                tryInsert(ruleRow);
+              } else {
+                db.get(
+                  "SELECT id, value FROM scoring_rules WHERE name LIKE ? AND active = 1 LIMIT 1",
+                  ["%" + motivo + "%"],
+                  (err2, ruleRowLike) => {
+                    if (err2) {
+                      errors.push(`Linha ${idx + 2}: Erro ao buscar regra (LIKE): ${err2.message}`);
                       checkDone();
-                    });
-                });
+                      return;
+                    }
+                    tryInsert(ruleRowLike || null);
+                  }
+                );
+              }
             });
           }
         });
