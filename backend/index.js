@@ -313,23 +313,33 @@ app.get('/api/athletes/:id', (req, res) => {
 
 // Histórico de pontos de um atleta
 app.get('/api/athletes/:id/scores', (req, res) => {
-  const id = req.params.id;
-  const query = `
-    SELECT
-      sc.id,
-      sr.name AS rule_name,
-      sr.value AS value
-    FROM scores sc
-    JOIN scoring_rules sr ON sc.rule_id = sr.id
-    WHERE sc.athlete_id = ?
-    ORDER BY sc.id DESC
-  `;
-  db.all(query, [id], (err, rows) => {
-    if (err) {
-      console.error("Erro ao buscar histórico do atleta:", err);
-      return res.status(500).json({ error: "Erro ao buscar histórico do atleta" });
+  const athleteId = req.params.id;
+
+  // Traduzir athlete_id → patient_id (scores armazena patient_id)
+  db.get("SELECT patient_id FROM athletes WHERE id = ?", [athleteId], (err, athlete) => {
+    if (err || !athlete) {
+      return res.status(404).json({ error: "Atleta não encontrado" });
     }
-    res.json(rows || []);
+
+    const patientId = athlete.patient_id;
+    const query = `
+      SELECT
+        sc.id,
+        sr.name AS rule_name,
+        CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END AS value,
+        sc.created_at
+      FROM scores sc
+      JOIN scoring_rules sr ON sc.rule_id = sr.id
+      WHERE sc.athlete_id = ?
+      ORDER BY sc.created_at DESC
+    `;
+    db.all(query, [patientId], (err, rows) => {
+      if (err) {
+        console.error("Erro ao buscar histórico do atleta:", err);
+        return res.status(500).json({ error: "Erro ao buscar histórico do atleta" });
+      }
+      res.json(rows || []);
+    });
   });
 });
 
