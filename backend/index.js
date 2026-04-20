@@ -2378,9 +2378,10 @@ app.post('/api/admin/import-points', uploadExcel.single('file'), (req, res) => {
       }
 
       data.forEach((row, idx) => {
-        const nome = row.Nome;
+        const nome = (row.Nome || '').trim();
+        const casa = (row.Casa || '').trim();
         const pontos = parseInt(row.Pontos) || 0;
-        const motivo = row.Motivo || 'Importação Excel';
+        const motivo = (row.Motivo || 'Importação Excel').trim();
 
         if (!nome || pontos === 0) {
           errors.push(`Linha ${idx + 2}: Nome inválido ou pontos 0.`);
@@ -2394,25 +2395,58 @@ app.post('/api/admin/import-points', uploadExcel.single('file'), (req, res) => {
             errors.push(`Linha ${idx + 2}: Aluno exato '${nome}' não encontrado.`);
             checkDone();
           } else {
-            // Mapeamento Motivo -> rule_id em scoring_rules (canônico; FK em scores aponta para cá)
-            db.get("SELECT id, value FROM scoring_rules WHERE name = ? AND active = 1", [motivo], (err, ruleRow) => {
+            // Mapeamento Motivo -> rule_id em scoring_rules
+            db.get("SELECT id, value FROM scoring_rules WHERE name = ? AND active = 1", [motivo], (err, ruleMatched) => {
               if (err) {
                 errors.push(`Linha ${idx + 2}: Erro ao buscar regra: ${err.message}`);
                 checkDone();
                 return;
               }
 
-              const tryInsert = (resolved) => {
-                const rule_id = resolved ? resolved.id : 99;
-                const points_to_award = resolved ? resolved.value : pontos;
+              if (ruleMatched) {
+                proceedWithInsert(ruleMatched);
+              } else {
+                // Segundo nível: busca por LIKE case-insensitive
+                db.get(
+                  "SELECT id, value FROM scoring_rules WHERE name LIKE ? AND active = 1 LIMIT 1",
+                  ["%" + motivo + "%"],
+                  (err2, ruleLike) => {
+                    if (ruleLike) {
+                      proceedWithInsert(ruleLike);
+                    } else {
+                      // Terceiro nível: remove brackets e tenta novamente
+                      const cleanedMotivo = motivo.replace(/\[|\]/g, '');
+                      db.get(
+                        "SELECT id, value FROM scoring_rules WHERE name LIKE ? AND active = 1 LIMIT 1",
+                        ["%" + cleanedMotivo + "%"],
+                        (err3, ruleDeep) => {
+                          proceedWithInsert(ruleDeep || null);
+                        }
+                      );
+                    }
+                  }
+                );
+              }
 
-                // Se foi achado uma regra, a pontuação da planilha pode ser sobrescrita pelo valor da regra.
+              function proceedWithInsert(resolvedRule) {
+                const rule_id = resolvedRule ? resolvedRule.id : 99;
+                // Se achou uma regra oficial, usa o valor da regra (ex: Presença = 1).
+                // Caso contrário (Adhoc/Extra), usa o ponto que está na planilha.
+                const points_to_award = resolvedRule && resolvedRule.value !== 0 ? resolvedRule.value : pontos;
+
+                if (!resolvedRule) {
+                  errors.push(`Linha ${idx + 2}: Motivo "${motivo}" não mapeado. Usando "Adhoc / Extra" (ID 99).`);
+                }
 
                 db.run(`INSERT INTO scores (athlete_id, rule_id, points, created_at)
                         VALUES (?, ?, ?, ?)`,
                   [athlete.patient_id, rule_id, points_to_award, new Date().toISOString()],
                   function (insertErr) {
-                    if (insertErr) { errors.push(`Erro inserindo score para ${nome}: ${insertErr.message}`); checkDone(); return; }
+                    if (insertErr) {
+                      errors.push(`Erro inserindo score para ${nome}: ${insertErr.message}`);
+                      checkDone();
+                      return;
+                    }
                     const scoreId = this.lastID;
 
                     db.run(`INSERT INTO house_points_log (house_id, patient_id, score_id, points_awarded, description)
@@ -2423,23 +2457,6 @@ app.post('/api/admin/import-points', uploadExcel.single('file'), (req, res) => {
                         checkDone();
                       });
                   });
-              };
-
-              if (ruleRow) {
-                tryInsert(ruleRow);
-              } else {
-                db.get(
-                  "SELECT id, value FROM scoring_rules WHERE name LIKE ? AND active = 1 LIMIT 1",
-                  ["%" + motivo + "%"],
-                  (err2, ruleRowLike) => {
-                    if (err2) {
-                      errors.push(`Linha ${idx + 2}: Erro ao buscar regra (LIKE): ${err2.message}`);
-                      checkDone();
-                      return;
-                    }
-                    tryInsert(ruleRowLike || null);
-                  }
-                );
               }
             });
           }
