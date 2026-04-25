@@ -237,6 +237,32 @@
             transform: scale(1.1);
         }
 
+        /* FAB de Chat (empilhado acima do ranking) */
+        .fab-chat {
+            position: fixed;
+            bottom: 160px;
+            right: 20px;
+            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 114, 255, 0.4);
+            font-size: 24px;
+            color: #fff;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            z-index: 90;
+        }
+
+        .fab-chat:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 18px rgba(0, 114, 255, 0.6);
+        }
+
         /* Card Standardization CSS */
         .card-frame {
             width: 200px !important;
@@ -443,7 +469,7 @@
                     <p style="font-size:0.85rem; color:#aaa;">(Conquista: Casa que somar mais meinhas no total da
                         semana)</p>
                     <ul style="padding-left: 20px;">
-                        <li><strong>Ladino:</strong> Rouba 3 meinhas de uma casa adversária imediatamente.</li>
+                        <li><strong>Ladino:</strong> Inicia um ataque de roubo de 3 meinhas (Alvo tem 24h para reagir).</li>
                         <li><strong>Zica:</strong> As faltas de uma casa adversária valem o dobro por 1 semana.</li>
                         <li><strong>Reverso:</strong> O feitiço da carta defendida vira contra o feiticeiro (Reflete o
                             ataque).</li>
@@ -597,21 +623,53 @@
         </div>
     </div>
 
-    <!-- Tandera Target Modal -->
-    <div id="tanderaModal" class="modal">
+    <!-- Card Target Selection Modal -->
+    <div id="cardTargetModal" class="modal">
         <div class="modal-content" style="max-width: 400px; text-align: center;">
             <div class="modal-header">
-                <h3 style="color: var(--gold); margin:0;">Olhos de Tandera</h3>
-                <span class="close-modal" onclick="closeTanderaModal()">&times;</span>
+                <h3 id="target-modal-title" style="color: var(--gold); margin:0;">Usar Poder</h3>
+                <span class="close-modal" onclick="closeTargetModal()">&times;</span>
             </div>
-            <p style="margin-bottom: 20px; color: #ccc;">Escolha a Casa Adversária para mirar o poder:</p>
-            <select id="tandera-target-select"
+            <p id="target-modal-instruction" style="margin: 15px 0; color: #ccc;">Escolha a Casa Adversária para mirar o poder:</p>
+            <select id="target-house-select"
                 style="width: 100%; padding: 10px; margin-bottom: 20px; font-size: 1rem; border-radius:6px; background:#000022; color:#fff;">
                 <option value="">Carregando alvos...</option>
             </select>
-            <button class="btn-primary" onclick="confirmTanderaTarget()" style="width: 100%;">Confirmar Alvo e
-                Atacar</button>
+            <button class="btn-primary" onclick="confirmTargetAndAttack()" style="width: 100%;">Confirmar Alvo e Ativar</button>
         </div>
+    </div>
+
+    <!-- FAB CHAT (empilhado acima do ranking) -->
+    <button
+        id="fab-chat"
+        class="fab-chat"
+        title="Chat da Minha Casa"
+        onclick="goToChat()"
+        aria-label="Ir para o Chat da Casa">
+        💬
+    </button>
+
+    <!-- Modal Chat -->
+    <div id="chat-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; overflow: auto;">
+      <div style="background: white; margin: 5% auto; padding: 0; width: 90%; max-width: 600px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); height: 80vh; display: flex; flex-direction: column;">
+        
+        <!-- Header do Modal -->
+        <div style="background: linear-gradient(135deg, #00C6FF, #0072FF); color: white; padding: 16px; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 18px;">💬 Chat da Minha Casa</h2>
+          <button onclick="closeChat()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">✕</button>
+        </div>
+        
+        <!-- Chat Messages Container -->
+        <div id="modal-chat-messages" style="flex: 1; overflow-y: auto; padding: 16px; background: #f9f9f9; display: flex; flex-direction: column;">
+          <!-- Mensagens aqui -->
+        </div>
+        
+        <!-- Input do Chat -->
+        <div style="padding: 12px; border-top: 1px solid #ddd; display: flex; gap: 8px; background: white; border-radius: 0 0 12px 12px;">
+          <input type="text" id="modal-chat-input" placeholder="Mensagem..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;" onkeypress="if(event.key==='Enter') sendModalChat()">
+          <button onclick="sendModalChat()" style="background: linear-gradient(135deg, #00C6FF, #0072FF); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">Enviar</button>
+        </div>
+      </div>
     </div>
 
     <!-- FAB -->
@@ -625,6 +683,119 @@
         function logout() {
             localStorage.removeItem('user');
             window.location.href = 'login.html';
+        }
+
+        let chatPolling;
+        
+        function goToChat() {
+            if (!window.studentHouseId) {
+                alert('Você ainda não está em uma casa!');
+                return;
+            }
+            openChatModal(window.studentHouseId);
+        }
+
+        function openChatModal(houseId) {
+            document.getElementById('chat-modal').style.display = 'block';
+            loadModalChatMessages(houseId);
+            
+            // Polling a cada 5s
+            chatPolling = setInterval(() => {
+                loadModalChatMessages(houseId);
+            }, 5000);
+        }
+
+        function closeChat() {
+            document.getElementById('chat-modal').style.display = 'none';
+            if (chatPolling) clearInterval(chatPolling);
+        }
+
+        // Fechar ao clicar fora do modal
+        window.onclick = function(event) {
+            const modal = document.getElementById('chat-modal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+                if (chatPolling) clearInterval(chatPolling);
+            }
+        }
+
+        // Fechar com ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modal = document.getElementById('chat-modal');
+                if (modal && modal.style.display === 'block') {
+                    modal.style.display = 'none';
+                    if (chatPolling) clearInterval(chatPolling);
+                }
+            }
+        });
+
+        function loadModalChatMessages(houseId) {
+            fetch(`/api/chat/house/${houseId}`)
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('modal-chat-messages');
+                    if (data.error) throw new Error(data.error);
+
+                    const isScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 5;
+                    container.innerHTML = '';
+                    
+                    if (data && data.length) {
+                        data.forEach(msg => {
+                            const bubble = document.createElement('div');
+                            // Tenta identificar se a mensagem é do usuário logado (pelo username ou id)
+                            const isMe = msg.patient_id === user.id;
+                            
+                            bubble.style.margin = '4px 0';
+                            bubble.style.padding = '10px 14px';
+                            bubble.style.borderRadius = isMe ? '16px 16px 0 16px' : '16px 16px 16px 0';
+                            bubble.style.backgroundColor = isMe ? '#0072FF' : '#e0e0e0';
+                            bubble.style.color = isMe ? 'white' : '#333';
+                            bubble.style.maxWidth = '80%';
+                            bubble.style.alignSelf = isMe ? 'flex-end' : 'flex-start';
+                            bubble.innerHTML = `<div style="font-size:0.75rem; opacity:0.8; margin-bottom:2px;">${msg.sender_name}</div><div>${msg.message}</div>`;
+                            
+                            container.appendChild(bubble);
+                        });
+                        
+                        if (isScrolledToBottom || container.children.length === 1) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    } else {
+                        container.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">Sem mensagens registradas.</p>';
+                    }
+                })
+                .catch(e => console.error('Erro ao carregar chat:', e));
+        }
+
+        function sendModalChat() {
+            const input = document.getElementById('modal-chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            const houseId = window.studentHouseId;
+            const patientId = user.id;
+            
+            if (!patientId) {
+                alert('Sessão expirada ou dados insuficientes.');
+                return;
+            }
+            
+            fetch('/api/chat/house', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ house_id: houseId, patient_id: patientId, message })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    input.value = '';
+                    loadModalChatMessages(houseId);
+                } else {
+                    alert(data.error || 'Falha ao enviar chat.');
+                }
+            })
+            .catch(e => console.error('Erro ao enviar chat:', e));
         }
 
         async function loadStudentData() {
@@ -658,6 +829,10 @@
                         badge.src = data.house.crest;
                         badge.style.display = 'block';
                     }
+                    // Salva house_id para o FAB de chat
+                    window.studentHouseId = data.house.id;
+                    const fabChat = document.getElementById('fab-chat');
+                    if (fabChat) fabChat.style.display = 'flex';
                 }
 
                 // Stats
@@ -744,16 +919,28 @@
                         const hashDisplay = card.hash ? `<div style="font-family: monospace; background: rgba(0,0,0,0.5); padding: 4px; border-radius: 4px; margin-top: 8px; font-size: 0.75rem; letter-spacing: 1px; color: #aaa;">#${card.hash.substring(0, 8)}</div>` : '';
 
                         // Use Button
-                        const useBtn = card.used === 0 ? `<button onclick="usarCarta(${card.id})" style="margin-top: 8px; width: 100%; background: var(--gold); border: none; padding: 5px; border-radius: 4px; color: #000; font-weight: bold; cursor: pointer;">Usar Carta</button>` : `<div style="margin-top: 8px; font-size: 0.8rem; color: #888;">Usada</div>`;
+                        const useBtn = card.used === 0 ? `<button class="use-card-btn" data-card-id="${card.id}" style="margin-top: 8px; width: 100%; background: var(--gold); border: none; padding: 5px; border-radius: 4px; color: #000; font-weight: bold; cursor: pointer;">Usar Carta</button>` : `<div style="margin-top: 8px; font-size: 0.8rem; color: #888;">Usada</div>`;
 
                         div.innerHTML = `
-                            <img src="${card.image_path}" class="card-frame" onclick="usarCarta(${card.id})" style="cursor: pointer;">
-                            <div style="font-weight: bold; font-size: 0.9rem;" onclick="usarCarta(${card.id})" style="cursor: pointer;">${card.name}</div>
+                            <img src="${card.image_path}" class="card-frame" data-card-id="${card.id}" style="cursor: pointer;">
+                            <div style="font-weight: bold; font-size: 0.9rem;" data-card-id="${card.id}">${card.name}</div>
                             ${hashDisplay}
                             ${useBtn}
                         `;
                         cardsContainer.appendChild(div);
                     });
+
+                    // Add delegated listener for cards once
+                    if (!window.cardsListenerSet) {
+                        document.getElementById('cards-list').addEventListener('click', (e) => {
+                            const target = e.target.closest('[data-card-id]');
+                            if (target) {
+                                const cardId = parseInt(target.getAttribute('data-card-id'));
+                                usarPoder(cardId);
+                            }
+                        });
+                        window.cardsListenerSet = true;
+                    }
 
 
                     window.studentCards = cards; // for viewer
@@ -775,53 +962,7 @@
             }
         }
 
-        function usarCarta(id) {
-            const card = window.studentCards.find(c => c.id === id);
-            if (!card) return;
-            useCard(card.id, card.hash, card.name);
-        }
-
-        async function useCard(id, hash, cardName) {
-            let description = "";
-            let confirmMsg = "Tem certeza que deseja ativar o poder desta carta?";
-
-            if (cardName === "Senhorinha") {
-                confirmMsg = "Você está ativando a carta Senhorinha. Qual o desafio lançado?";
-                description = prompt(confirmMsg);
-                if (!description) {
-                    alert("Ação cancelada. É obrigatório descrever o desafio da Senhorinha.");
-                    return;
-                }
-            } else if (cardName === "Ladino") {
-                confirmMsg = "Você está ativando a carta Ladino (-3 para rival). Informe a casa que será prejudicada:";
-                description = prompt(confirmMsg);
-                if (!description) return;
-            } else if (cardName === "Vida") {
-                confirmMsg = "Você está ativando a carta Vida (cancela 1 falta). Deseja prosseguir?";
-                if (!confirm(confirmMsg)) return;
-                description = "Cancelamento automático de falta via carta Vida";
-            } else {
-                if (!confirm(confirmMsg)) return;
-            }
-
-            try {
-                const res = await fetch('/api/usar-carta', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ student_card_id: id, hash: hash, card_name: cardName, description: description })
-                });
-
-                const data = await res.json();
-                if (res.ok) {
-                    alert(data.message);
-                    location.reload();
-                } else {
-                    alert("Erro: " + data.error);
-                }
-            } catch (e) {
-                alert("Erro ao usar carta.");
-            }
-        }
+        // Logic removed in favor of unified usarPoder below
 
         // --- Modals Logic ---
         function openRulesModal() {
@@ -891,7 +1032,7 @@
             if (event.target == regras) regras.style.display = "none";
             if (event.target == pass && !isForcedPassword) pass.style.display = "none";
             if (event.target == reactMod) reactMod.style.display = "none";
-            if (event.target == tandera) closeTanderaModal();
+            if (event.target == tandera) closeTargetModal();
         }
 
         // --- Reaction Modal ---
@@ -1026,77 +1167,75 @@
         // Inicia verificação
         checkCampoBatalha();
     </script>
-    <script>
-        // Funcionalidade solicitada: Adicionar EventListener de clique nas cartas
-        document.addEventListener('DOMContentLoaded', () => {
-            // As cartas são renderizadas dinamicamente, então usaremos delegação de eventos
-            document.getElementById('cards-container').addEventListener('click', function (e) {
-                const cardElement = e.target.closest('.card-frame');
-                if (cardElement) {
-                    // O id da carta foi passado no onclick original, mas para seguir o protocolo, 
-                    // extraímos do click ou chamamos usarPoder(). 
-                    // Para evitar conflito com o onclick="usarCarta()", vamos interceptar.
-                    // Como a instrução diz "O clique deve chamar a função 'usarPoder(cardId)'",
-                    // implementaremos a função e ela fará o fetch.
+        // --- MODAL DE ALVO (GENÉRICO) ---
+        let pendingCardForTarget = null;
 
-                    // Nota: O HTML já tem onclick="usarCarta(id)" na img.
-                    // Para não quebrar nada e apenas ADICIONAR, a função usarPoder fica disponível 
-                    // e pode ser chamada. A instrução diz "um script que adicione um EventListener".
-                }
-            });
-        });
-
-        let pendingCardForTandera = null;
-
-        async function openTanderaModal(card) {
-            pendingCardForTandera = card;
-            document.getElementById('tanderaModal').style.display = 'block';
+        async function openTargetModal(card) {
+            pendingCardForTarget = card;
+            document.getElementById('target-modal-title').textContent = card.name;
+            document.getElementById('cardTargetModal').style.display = 'block';
 
             try {
                 const res = await fetch('/api/houses-targets');
                 const houses = await res.json();
 
-                const selectElement = document.getElementById('tandera-target-select');
-                selectElement.innerHTML = '';
+                const selectElement = document.getElementById('target-house-select');
+                selectElement.innerHTML = '<option value="">Selecione uma casa adversária...</option>';
 
                 houses.forEach(h => {
-                    if (h.id === user.house_id) return; // não pode mirar na própria casa
+                    if (h.id === window.studentHouseId) return; // não pode mirar na própria casa
                     const opt = document.createElement('option');
                     opt.value = h.id;
                     opt.textContent = `${h.name} ${h.captains.length ? '(Capitão: ' + h.captains[0].name + ')' : ''}`;
                     selectElement.appendChild(opt);
                 });
-            } catch (e) { console.error('Tandera fetch error', e); }
+            } catch (e) {
+                console.error('Target fetch error', e);
+            }
         }
 
-        function closeTanderaModal() {
-            document.getElementById('tanderaModal').style.display = 'none';
-            pendingCardForTandera = null;
+        function closeTargetModal() {
+            document.getElementById('cardTargetModal').style.display = 'none';
+            pendingCardForTarget = null;
         }
 
-        async function confirmTanderaTarget() {
-            if (!pendingCardForTandera) return;
-            const targetHouseId = document.getElementById('tandera-target-select').value;
+        async function confirmTargetAndAttack() {
+            if (!pendingCardForTarget) return;
+            const targetHouseId = document.getElementById('target-house-select').value;
             if (!targetHouseId) { alert("Selecione um alvo!"); return; }
 
-            await executeCardUse(pendingCardForTandera, targetHouseId);
-            closeTanderaModal();
+            await executeCardUse(pendingCardForTarget, targetHouseId);
+            closeTargetModal();
         }
 
+        // --- LÓGICA UNIFICADA DE USO ---
         async function usarPoder(cardId) {
             const card = window.studentCards.find(c => c.id === cardId);
             if (!card) return;
 
-            const targetedCards = ["Spoiler", "Ladino", "Zica", "Coringa", "Trapaça", "VAR", "Tandera"];
+            const targetedCards = ["Spoiler", "Ladino", "Zica", "Coringa", "Trapaça", "VAR", "Tandera", "Aliança"];
 
             if (targetedCards.includes(card.name)) {
-                openTanderaModal(card);
+                openTargetModal(card);
             } else {
-                await executeCardUse(card, null);
+                let description = "";
+                let confirmMsg = `Deseja ativar o poder: ${card.name}?`;
+
+                if (card.name === "Senhorinha") {
+                    confirmMsg = "Você está ativando a carta Senhorinha. Qual o desafio lançado?";
+                    description = prompt(confirmMsg);
+                    if (!description) return;
+                } else if (card.name === "Vida") {
+                    if (!confirm("Confirmar uso da carta Vida para remover última falta?")) return;
+                } else {
+                    if (!confirm(confirmMsg)) return;
+                }
+
+                await executeCardUse(card, null, description);
             }
         }
 
-        async function executeCardUse(card, targetHouseId) {
+        async function executeCardUse(card, targetHouseId, description = "") {
             try {
                 const res = await fetch('/api/cards/use', {
                     method: 'POST',
@@ -1105,8 +1244,8 @@
                         student_card_id: card.id,
                         hash: card.hash,
                         card_name: card.name,
-                        description: targetHouseId ? String(targetHouseId) : "Ativação via usarPoder",
-                        target_house_id: targetHouseId // Fallback payload se preciso
+                        description: description || (targetHouseId ? String(targetHouseId) : "Ativação direta"),
+                        target_house_id: targetHouseId
                     })
                 });
 
@@ -1121,30 +1260,6 @@
                 alert("Erro ao usar carta.");
             }
         }
-
-        // Para satisfazer a exigência de adicionar o listener em cartas
-        // Interceptaremos o clique nas imagens
-        setTimeout(() => {
-            const imgs = document.querySelectorAll('.card-frame');
-            imgs.forEach(img => {
-                const originalOnclick = img.getAttribute('onclick');
-                if (originalOnclick) {
-                    const match = originalOnclick.match(/\d+/);
-                    if (match) {
-                        const cardId = parseInt(match[0]);
-                        // Removemos o onclick antigo para usar o EventListener novo, se a instrução obriga.
-                        // Mas a instrução diz "ADICIONE (não substitua)".
-                        // Então vou adicionar o EventListener.
-                        img.addEventListener('click', (e) => {
-                            e.preventDefault(); // Impede duplo clique se o onclick antigo disparar. Na vdd o onclick dispara tbm.
-                            // Mas para não conflitar com a instrução "O clique DEVE chamar usarPoder", 
-                            // e "NÃO SUBSTITUA", eu chamo usarPoder.
-                            usarPoder(cardId);
-                        });
-                    }
-                }
-            });
-        }, 2000); // Aguarda renderização
     </script>
 </body>
 

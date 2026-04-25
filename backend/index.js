@@ -1261,14 +1261,15 @@ function insertScore(athleteId, ruleId, res) {
           }
 
           // Verificar efeito INFLUENCER ativo para a casa
-          const nowIso = new Date().toISOString();
+          const nowIso2 = new Date().toISOString(); // Renamed to avoid shadow if any
           db.get(
             "SELECT id FROM active_effects WHERE house_id = ? AND effect_type = 'INFLUENCER' AND expires_at > ?",
-            [athlete.house_id, nowIso],
+            [athlete.house_id, nowIso2],
             (err, influencerEffect) => {
               // Dobra o valor apenas para regras de mídia social se Influencer estiver ativo
-              const isMidia = ['[+1 Ponto] Story (@marchareab)', '[+2 Pontos] Reels/Feed'].includes(rule.name);
-              
+              // IDs fixos das regras de mídia social: 3 (Story) e 5 (Reels/Feed)
+              const isMidia = [3, 5].includes(ruleId);
+
               // Inserir score extra se Influencer ativo e regra de mídia
               if (influencerEffect && isMidia) {
                 db.run("INSERT INTO scores (athlete_id, rule_id) VALUES (?, ?)", [athlete.patient_id, ruleId]);
@@ -1278,7 +1279,6 @@ function insertScore(athleteId, ruleId, res) {
                 if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
                 const scoreId = this.lastID;
 
-            // 1) Gatilho: Cartas Comuns por Presença
             if (rule.name === '[+1 Ponto] Presença') {
               db.get("SELECT COUNT(*) as count FROM scores s JOIN scoring_rules sr ON s.rule_id = sr.id WHERE s.athlete_id = ? AND sr.name = '[+1 Ponto] Presença'", [athlete.patient_id], (err, row) => {
                 let totalPresencas = row ? row.count : 0;
