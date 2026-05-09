@@ -290,13 +290,13 @@ app.get('/api/houses/:id/athletes', (req, res) => {
     res.json(rows || []);
   });
 });
-// Detalhes básicos de um atleta
 app.get('/api/athletes/:id', (req, res) => {
   const id = req.params.id;
   const query = `
-    SELECT a.id, a.name, h.name AS house_name
+    SELECT a.*, h.name as house_name, p.role
     FROM athletes a
     JOIN houses h ON a.house_id = h.id
+    JOIN patients p ON a.patient_id = p.id
     WHERE a.id = ?
   `;
   db.get(query, [id], (err, row) => {
@@ -308,6 +308,46 @@ app.get('/api/athletes/:id', (req, res) => {
       return res.status(404).json({ error: "Atleta não encontrado" });
     }
     res.json(row);
+  });
+});
+
+app.delete('/api/athletes/:id', (req, res) => {
+  const id = req.params.id;
+  
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    // Soft delete no atleta
+    db.run("UPDATE athletes SET active = 0 WHERE id = ?", [id], function(err) {
+      if (err) {
+        db.run("ROLLBACK");
+        return res.status(500).json({ error: "Erro ao deletar atleta" });
+      }
+      
+      // Também desativa o paciente vinculado
+      db.run("UPDATE patients SET active = 0 WHERE id = (SELECT patient_id FROM athletes WHERE id = ?)", [id], function(err) {
+        if (err) {
+          db.run("ROLLBACK");
+          return res.status(500).json({ error: "Erro ao desativar paciente vinculado" });
+        }
+        db.run("COMMIT");
+        res.json({ success: true, message: "Atleta e paciente desativados com sucesso." });
+      });
+    });
+  });
+});
+
+app.put('/api/athletes/:id/captain', (req, res) => {
+  const athleteId = req.params.id;
+  const { is_captain, admin_role } = req.body;
+  
+  // Apenas admin ou coach pode promover
+  if (admin_role !== 'admin' && admin_role !== 'coach' && req.body.admin_id !== 9999) {
+    return res.status(403).json({ error: "Acesso negado. Apenas coordenadores podem nomear capitães." });
+  }
+
+  db.run("UPDATE athletes SET is_captain = ? WHERE id = ?", [is_captain ? 1 : 0, athleteId], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, message: is_captain ? "Atleta promovido a Capitão!" : "Capitão removido." });
   });
 });
 
@@ -1129,24 +1169,75 @@ app.delete('/api/financial/:id', (req, res) => {
 
 // Rota de Ranking (Cálculo de pontos das casas)
 app.get('/api/ranking', (req, res) => {
-  console.log('GET /api/ranking');
+  const now = new Date();
+  const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+  const currentYear = now.getFullYear();
+
   const query = `
     SELECT h.id, h.name, h.color, h.crest,
-           COALESCE(SUM(CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END), 0) as total_points
+           (SELECT COALESCE(SUM(CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END), 0)
+            FROM athletes a
+            LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
+            LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+            WHERE a.house_id = h.id) as total_meinhas,
+           (SELECT target FROM meta_meinhas WHERE house_id = h.id AND month = ? AND year = ? LIMIT 1) as monthly_target
     FROM houses h
-    LEFT JOIN athletes a ON h.id = a.house_id
-    LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
-    LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
     WHERE h.active = 1
     GROUP BY h.id
-    ORDER BY total_points DESC
+    ORDER BY total_meinhas DESC
   `;
-  db.all(query, [], (err, rows) => {
+
+  db.all(query, [currentMonth, currentYear], (err, rows) => {
     if (err) {
       console.error("Erro no ranking:", err);
       return res.status(500).json({ error: "Erro ao calcular ranking" });
     }
-    res.json(rows || []);
+    
+    const rankings = rows.map(r => {
+      const target = r.monthly_target || 100; // Default 100 se não houver meta
+      let points_scale = (r.total_meinhas / target) * 10;
+      if (points_scale > 10) points_scale = 10;
+      if (points_scale < 0) points_scale = 0;
+      
+      return {
+        ...r,
+        total_points: parseFloat(points_scale.toFixed(1)), // Escala 0-10
+        raw_meinhas: r.total_meinhas,
+        target: target,
+        display_score: `${parseFloat(points_scale.toFixed(1))}/10`
+      };
+    });
+
+    // Ordena pelo novo total_points (escala 0-10)
+    rankings.sort((a, b) => b.total_points - a.total_points);
+    
+    res.json(rankings);
+  });
+});
+
+app.post('/api/admin/set-meta', (req, res) => {
+  const { house_id, month, year, target, admin_role, admin_id } = req.body;
+  
+  if (admin_id !== 9999 && admin_role !== 'admin' && admin_role !== 'coach') {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
+  
+  db.run(`INSERT OR REPLACE INTO meta_meinhas (house_id, month, year, target) VALUES (?, ?, ?, ?)`,
+    [house_id, month, year, target], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, message: "Meta atualizada com sucesso!" });
+    });
+});
+
+app.get('/api/admin/get-metas', (req, res) => {
+  db.all(`
+    SELECT m.*, h.name as house_name 
+    FROM meta_meinhas m 
+    JOIN houses h ON m.house_id = h.id 
+    ORDER BY year DESC, month DESC
+  `, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
   });
 });
 
@@ -2167,11 +2258,44 @@ app.get('/api/student-portal/:id', (req, res) => {
         db.all(historyQuery, [patientId, patientId], (err, scores) => {
           let totalScore = scores ? scores.reduce((acc, curr) => acc + curr.value, 0) : 0;
 
-          res.json({
-            patient: patient,
-            house: house || { name: 'Sem Casa', color: '#000033' },
-            athlete: { totalScore: totalScore },
-            scores: scores || []
+          // Buscar ranking atualizado para o gráfico
+          const rankingUrl = `${req.protocol}://${req.get('host')}/api/ranking`;
+          const http = require('http');
+          
+          // Como estamos dentro da mesma app, talvez seja melhor chamar a função interna do DB ou fazer um fetch simples.
+          // Mas vamos retornar o JSON parcial e o frontend que se vire se possível? 
+          // O usuário quer "Ranking Público ... Mostrar APENAS pontos (0-10)".
+          // Vou injetar o ranking aqui chamando a lógica do ranking.
+          
+          const now = new Date();
+          const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+          const currentYear = now.getFullYear();
+          const rankQuery = `
+            SELECT h.name,
+                   (SELECT COALESCE(SUM(CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END), 0)
+                    FROM athletes a
+                    LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
+                    LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+                    WHERE a.house_id = h.id) as total_meinhas,
+                   (SELECT target FROM meta_meinhas WHERE house_id = h.id AND month = ? AND year = ? LIMIT 1) as monthly_target
+            FROM houses h WHERE h.active = 1
+          `;
+          
+          db.all(rankQuery, [currentMonth, currentYear], (err, rankRows) => {
+            const ranking = (rankRows || []).map(r => {
+              const target = r.monthly_target || 100;
+              let ps = (r.total_meinhas / target) * 10;
+              if (ps > 10) ps = 10;
+              return { name: r.name, total_points: parseFloat(ps.toFixed(1)) };
+            });
+
+            res.json({
+              patient: patient,
+              house: house || { name: 'Sem Casa', color: '#000033' },
+              athlete: { totalScore: totalScore },
+              scores: scores || [],
+              ranking: ranking
+            });
           });
         });
       });
@@ -2848,27 +2972,61 @@ function dailyAttendanceJob() {
 }
 
 app.post('/api/attendance/bulk', (req, res) => {
-  // Validar admin
-  if (req.body.admin_id !== 9999) {
-    return res.status(403).json({ error: 'Acesso negado' });
+  const { attendances, admin_id, admin_role } = req.body;
+  
+  // Validar permissão (admin ou coach)
+  const isAdmin = (admin_id === 9999) || (admin_role === 'admin' || admin_role === 'coach');
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Acesso negado. Apenas administradores ou coaches podem lançar frequência.' });
   }
   
-  const { attendances } = req.body; // [{patient_id, house_id, status}, ...]
-  if (!attendances) return res.status(400).json({ error: "Nenhum dado enviado" });
+  if (!attendances || !Array.isArray(attendances)) return res.status(400).json({ error: "Nenhum dado enviado ou formato inválido" });
 
   const today = new Date().toISOString().split('T')[0];
-  
-  attendances.forEach(att => {
-    db.run(`INSERT OR REPLACE INTO attendance (patient_id, house_id, date, status) 
-            VALUES (?, ?, ?, ?)`,
-      [att.patient_id, att.house_id, today, att.status],
-      (err) => {
-        if (!err) console.log(`✅ ${att.patient_id}: ${att.status} (${today})`);
-        else console.error(`Erro presenca: ${err.message}`);
-      });
+  let processed = 0;
+
+  db.serialize(() => {
+    attendances.forEach(att => {
+      // 1. Registrar na tabela attendance
+      db.run(`INSERT OR REPLACE INTO attendance (patient_id, house_id, date, status) VALUES (?, ?, ?, ?)`,
+        [att.patient_id, att.house_id, today, att.status], (err) => {
+          if (err) console.error(`Erro ao salvar frequência para ${att.patient_id}:`, err);
+        });
+
+      if (att.status === 'PRESENT') {
+        // 2. Dar +1 meinha imediatamente
+        db.run(`INSERT INTO house_points_log (house_id, student_id, points_awarded, description) VALUES (?, ?, ?, ?)`,
+          [att.house_id, att.patient_id, 1, `Presença Diária (${today}): +1 meinha`], (err) => {
+            if (err) console.error(`Erro ao dar ponto para ${att.patient_id}:`, err);
+          });
+
+        // 3. Lógica de 3 presenças -> 1 carta
+        db.run(`UPDATE patients SET consecutive_presences = COALESCE(consecutive_presences, 0) + 1 WHERE id = ?`, [att.patient_id], function(err) {
+            if (!err) {
+                db.get(`SELECT consecutive_presences FROM patients WHERE id = ?`, [att.patient_id], (err, row) => {
+                    if (row && row.consecutive_presences >= 3) {
+                        // Reset contador
+                        db.run(`UPDATE patients SET consecutive_presences = 0 WHERE id = ?`, [att.patient_id]);
+                        // Dar carta aleatória
+                        db.get("SELECT id FROM cards ORDER BY RANDOM() LIMIT 1", [], (err, card) => {
+                            if (card) {
+                                const crypto = require('crypto');
+                                const hash = crypto.randomBytes(8).toString('hex').toUpperCase();
+                                db.run(`INSERT INTO student_cards (student_id, card_id, hash) VALUES (?, ?, ?)`,
+                                    [att.patient_id, card.id, hash]);
+                                console.log(`🎁 Carta concedida ao Aluno ${att.patient_id} por 3 presenças!`);
+                            }
+                        });
+                    }
+                });
+            }
+        });
+      }
+      processed++;
+    });
   });
-  
-  res.json({ success: true, count: attendances.length });
+
+  res.json({ success: true, count: processed });
 });
 
 // Executa as triggers diariamente

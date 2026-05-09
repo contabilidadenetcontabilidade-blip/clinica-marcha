@@ -441,10 +441,120 @@ async function resolverProva(id, result) {
 window.resolverProva = resolverProva;
 window.loadProvasPendentes = loadProvasPendentes;
 
+// --- GESTÃO DE FREQUÊNCIA (PRESENÇA DIÁRIA) ---
+
+let currentAttendanceList = [];
+
+function openAttendanceModal() {
+  document.getElementById("attendance-modal").classList.remove("hidden");
+  loadAttendanceList();
+}
+
+function closeAttendanceModal() {
+  document.getElementById("attendance-modal").classList.add("hidden");
+}
+
+async function loadAttendanceList() {
+  const container = document.getElementById('attendance-list');
+  const houseFilter = document.getElementById('attendance-house-filter').value;
+  container.innerHTML = '<p style="padding:20px; text-align:center; color:#666;">Carregando alunos...</p>';
+
+  try {
+    const res = await fetch('/api/patients?type=student&active=true');
+    let students = await res.json();
+
+    // Filtra por casa se necessário
+    if (houseFilter !== "0") {
+      students = students.filter(s => s.house_id == houseFilter);
+    }
+
+    currentAttendanceList = students;
+
+    if (students.length === 0) {
+      container.innerHTML = '<p style="padding:20px; text-align:center; color:#888;">Nenhum aluno encontrado para este filtro.</p>';
+      return;
+    }
+
+    container.innerHTML = `
+      <table style="width:100%; border-collapse:collapse;">
+        <thead style="background:#f5f5f5; position:sticky; top:0;">
+          <tr>
+            <th style="text-align:left; padding:10px; border-bottom:2px solid #ddd;">Aluno</th>
+            <th style="text-align:center; padding:10px; border-bottom:2px solid #ddd;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${students.map(s => `
+            <tr style="border-bottom:1px solid #eee;">
+              <td style="padding:10px; font-weight:500;">${s.name}</td>
+              <td style="padding:10px; text-align:center;">
+                <select class="att-status" data-patient="${s.id}" data-house="${s.house_id}" 
+                        style="padding:5px; border-radius:4px; border:1px solid #ccc; width:120px;">
+                  <option value="PRESENT" selected>✅ PRESENTE</option>
+                  <option value="ABSENT">❌ FALTA</option>
+                </select>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = '<p style="padding:20px; text-align:center; color:red;">Erro ao carregar alunos.</p>';
+  }
+}
+
+async function saveAttendance() {
+  const selects = document.querySelectorAll('.att-status');
+  const attendances = Array.from(selects).map(sel => ({
+    patient_id: sel.dataset.patient,
+    house_id: sel.dataset.house,
+    status: sel.value
+  }));
+
+  if (attendances.length === 0) return;
+
+  const btn = document.querySelector('button[onclick="saveAttendance()"]');
+  setButtonLoading(btn, true);
+
+  try {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const res = await fetch('/api/attendance/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attendances,
+        admin_id: currentUser.id,
+        admin_role: currentUser.role
+      })
+    });
+
+    if (res.ok) {
+      showSuccess(`Sucesso! ${attendances.length} presenças registradas.`);
+      closeAttendanceModal();
+      loadHouses(); // Atualiza ranking pois ganharam pontos
+    } else {
+      const data = await res.json();
+      showError('Erro ao salvar: ' + (data.error || res.status));
+    }
+  } catch (err) {
+    console.error(err);
+    showError('Erro de conexão ao salvar frequências.');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+window.openAttendanceModal = openAttendanceModal;
+window.closeAttendanceModal = closeAttendanceModal;
+window.loadAttendanceList = loadAttendanceList;
+window.saveAttendance = saveAttendance;
+
 // --- PROTEÇÃO DE ADMIN (TAMARA) ---
 document.addEventListener('DOMContentLoaded', () => {
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const isAdmin = currentUser.id === 9999;
+  const isAdmin = (currentUser.id === 9999) || (currentUser.role === 'admin' || currentUser.role === 'coach');
 
   // Se não for admin, oculta os botões
   if (!isAdmin) {
@@ -459,5 +569,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const provasPendentes = document.getElementById('section-provas-pendentes');
     if (provasPendentes) provasPendentes.style.display = 'none';
+
+    const btnFreq = document.querySelector('button[onclick="openAttendanceModal()"]');
+    if (btnFreq) btnFreq.style.display = 'none';
   }
 });

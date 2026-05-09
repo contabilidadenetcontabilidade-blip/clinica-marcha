@@ -103,7 +103,23 @@ function renderPatients() {
       editPatient(patient.id);
     };
 
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-delete';
+    deleteBtn.style.background = '#e53935';
+    deleteBtn.style.color = 'white';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.padding = '8px 12px';
+    deleteBtn.style.borderRadius = '4px';
+    deleteBtn.style.marginLeft = '10px';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.textContent = 'Excluir';
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      deletePatient(patient.id, patient.name);
+    };
+
     actions.appendChild(editBtn);
+    actions.appendChild(deleteBtn);
 
     li.appendChild(info);
     li.appendChild(actions);
@@ -157,6 +173,26 @@ function editPatient(id) {
 
 function viewPatient(id) {
   editPatient(id);
+}
+
+async function deletePatient(id, name) {
+  if (!confirm(`Tem certeza que deseja excluir ${name}? Esta ação irá desativar o registro do aluno/atleta.`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/patients/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      showSuccess('Registro excluído com sucesso.');
+      loadPatients();
+    } else {
+      const data = await res.json();
+      showError('Erro ao excluir: ' + (data.error || res.status));
+    }
+  } catch (err) {
+    console.error(err);
+    showError('Erro de conexão ao excluir.');
+  }
 }
 
 function searchPatients() {

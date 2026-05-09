@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Ranking Administrativo - Marcha Cup</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { color: #000033; border-bottom: 2px solid #FFD700; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #000033; color: white; }
+        .status-ok { color: green; font-weight: bold; }
+        .status-fail { color: red; font-weight: bold; }
+        .btn-back { background: #666; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="btn-back" onclick="window.location.href='cup.html'">← Voltar</button>
+        <h1>🏆 Ranking Detalhado (Meinhas vs Meta)</h1>
+        <p>Visão administrativa do progresso real das casas neste mês.</p>
+        
+        <table id="ranking-table">
+            <thead>
+                <tr>
+                    <th>Casa</th>
+                    <th>Meinhas Atuais</th>
+                    <th>Meta Mensal</th>
+                    <th>% Atingida</th>
+                    <th>Pontos (0-10)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="6" style="text-align:center;">Carregando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadAdminRanking() {
+            try {
+                const res = await fetch('/api/ranking');
+                const data = await res.json();
+                
+                const tbody = document.querySelector('#ranking-table tbody');
+                tbody.innerHTML = '';
+                
+                data.forEach(r => {
+                    const percent = ((r.raw_meinhas / r.target) * 100).toFixed(1);
+                    const statusClass = percent >= 100 ? 'status-ok' : 'status-fail';
+                    const statusText = percent >= 100 ? 'META ATINGIDA' : 'EM PROGRESSO';
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight:bold; color:${r.color}">${r.name}</td>
+                        <td>${r.raw_meinhas}</td>
+                        <td>${r.target}</td>
+                        <td>${percent}%</td>
+                        <td style="font-weight:bold;">${r.total_points}/10</td>
+                        <td class="${statusClass}">${statusText}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error(err);
+                alert('Erro ao carregar ranking administrativo.');
+            }
+        }
+        
+        loadAdminRanking();
+    </script>
+</body>
+</html>

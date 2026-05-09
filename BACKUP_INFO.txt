@@ -1,0 +1,11 @@
+﻿Data: 09/05/2026
+Hora: 19:26
+Commit Hash: ffbdb1431e2114c35e4915ac968471d8374de254
+
+Lista de mudanças planejadas:
+1. Correção do sistema de Frequência Diária (backend e frontend).
+2. Restauração do botão Deletar Atleta em pacientes.html/js.
+3. Ajuste da permissão de Capitão para qualquer admin/coach (remover hardcoded id=9999).
+4. Implementação de Ranking em escala 0-10 para atletas.
+5. Criação de interface e ranking administrativo de meinhas vs metas.
+6. Criação da tabela meta_meinhas no banco de dados.

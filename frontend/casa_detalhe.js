@@ -4,7 +4,7 @@ let currentRules = [];
 
 // Lê o usuário logado para controle de permissões
 const _currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-const _isAdmin = _currentUser.id === 9999;
+const _isAdmin = _currentUser.role === 'admin' || _currentUser.role === 'coach' || _currentUser.id === 9999;
 
 function getHouseIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -83,7 +83,10 @@ async function loadDashboard() {
             const res = await fetch(`/api/athletes/${ath.id}/captain`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ is_captain: ath.is_captain == 1 ? false : true })
+              body: JSON.stringify({ 
+                is_captain: ath.is_captain == 1 ? false : true,
+                admin_role: _currentUser.role
+              })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
