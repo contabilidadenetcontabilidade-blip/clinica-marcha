@@ -1267,6 +1267,79 @@ app.get('/api/ranking', (req, res) => {
   });
 });
 
+app.get('/api/ranking/minha-casa-detalhado', (req, res) => {
+  const userId = req.query.user_id;
+  if (!userId) return res.status(400).json({ error: "user_id é obrigatório" });
+
+  const now = new Date();
+  const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+  const currentYear = now.getFullYear();
+
+  // 1. Validar casa do usuário
+  db.get("SELECT house_id FROM athletes WHERE patient_id = ? AND active = 1", [userId], (err, userAth) => {
+    if (err || !userAth) return res.status(403).json({ error: "Acesso negado. Atleta não encontrado ou inativo." });
+
+    const houseId = userAth.house_id;
+
+    // 2. Buscar Meta e dados da Casa
+    const houseQuery = `
+      SELECT h.id, h.name, h.color,
+             (SELECT target FROM meta_meinhas WHERE house_id = h.id AND month = ? AND year = ? LIMIT 1) as monthly_target
+      FROM houses h WHERE h.id = ?
+    `;
+
+    db.get(houseQuery, [currentMonth, currentYear, houseId], (err, house) => {
+      if (err || !house) return res.status(500).json({ error: "Erro ao buscar dados da casa" });
+
+      // 3. Buscar Atletas e suas Meinhas
+      const athletesQuery = `
+        SELECT a.patient_id as id, a.name, 
+               COALESCE(SUM(COALESCE(sc.points, sr.value)), 0) as meinhas
+        FROM athletes a
+        LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
+        LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+        WHERE a.house_id = ? AND a.active = 1
+        GROUP BY a.patient_id
+        ORDER BY meinhas DESC
+      `;
+
+      db.all(athletesQuery, [houseId], (err, athletes) => {
+        if (err) return res.status(500).json({ error: "Erro ao buscar atletas" });
+
+        const target = house.monthly_target || 100;
+        const totalMeinhas = athletes.reduce((acc, curr) => acc + curr.meinhas, 0);
+        const pointsAchieved = totalMeinhas >= target;
+
+        const detailedAthletes = athletes.map(ath => {
+          const perc = target > 0 ? ((ath.meinhas / target) * 100).toFixed(1) : 0;
+          let stars = 0;
+          if (ath.meinhas >= 40) stars = 3;
+          else if (ath.meinhas >= 25) stars = 2;
+          else if (ath.meinhas >= 10) stars = 1;
+
+          return {
+            id: ath.id,
+            name: ath.name,
+            meinhas: ath.meinhas,
+            percentage: parseFloat(perc),
+            stars: stars
+          };
+        });
+
+        res.json({
+          house: house.name,
+          color: house.color,
+          month: `${currentYear}-${currentMonth}`,
+          meta: target,
+          total_meinhas: totalMeinhas,
+          points_achieved: pointsAchieved,
+          athletes: detailedAthletes
+        });
+      });
+    });
+  });
+});
+
 app.post('/api/admin/set-meta', (req, res) => {
   const { house_id, month, year, target, admin_role, admin_id } = req.body;
   

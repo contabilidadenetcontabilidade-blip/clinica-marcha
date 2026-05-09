@@ -6,9 +6,7 @@
     <title>Ranking Marcha Cup 🏆</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/cards-style.css">
-    <script src="auth_guard.js"></script>
-
-    <style>
+    <script src="auth_guard.js"></script>    <style>
         body {
             background: #121212;
             color: #fff;
@@ -102,6 +100,84 @@
             color: #CD7F32;
         }
 
+        /* Novas Estilos Seção 2 */
+        .section-separator {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #FFD700, transparent);
+            margin: 40px 0;
+        }
+
+        .meinhas-section {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            text-align: left;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+        }
+
+        .progress-container {
+            background: rgba(255, 255, 255, 0.1);
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #FFD700, #FFA500);
+            transition: width 0.5s ease-in-out;
+        }
+
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-ok { background: #2e7d32; color: #fff; }
+        .status-pending { background: #f57c00; color: #fff; }
+
+        .athletes-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .athletes-table th, .athletes-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .athletes-table th {
+            background: rgba(255,215,0,0.1);
+            color: #FFD700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        .total-row {
+            font-weight: bold;
+            background: rgba(255,255,255,0.05);
+        }
+
         .nav-bottom {
             margin-top: 40px;
         }
@@ -140,6 +216,48 @@
         <p>Carregando ranking...</p>
     </div>
 
+    <div class="section-separator"></div>
+
+    <div id="meinhas-section-container" class="meinhas-section" style="display: none;">
+        <div class="section-header">
+            <h2 id="meinhas-title" style="margin: 0; font-size: 1.4rem;">📊 MEINHAS DA SUA CASA</h2>
+            <div id="meinhas-status" class="status-badge">EM PROGRESSO</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #ccc;">
+            <span>Meta do Mês: <b id="meta-val">0</b></span>
+            <span>Conquistadas: <b id="achieved-val">0</b></span>
+        </div>
+
+        <div class="progress-container">
+            <div id="progress-bar-fill" class="progress-bar" style="width: 0%"></div>
+        </div>
+        <div id="progress-text" style="text-align: center; font-size: 0.8rem; color: #FFD700; font-weight: bold;">0%</div>
+
+        <h3 style="margin: 30px 0 10px 0; font-size: 1.1rem; color: #FFD700;">Meinhas por Atleta:</h3>
+        <table class="athletes-table">
+            <thead>
+                <tr>
+                    <th>Atleta</th>
+                    <th style="text-align: center;">Meinhas</th>
+                    <th style="text-align: center;">% da Meta</th>
+                    <th style="text-align: center;">Nível</th>
+                </tr>
+            </thead>
+            <tbody id="athletes-list">
+                <!-- Injetado via JS -->
+            </tbody>
+            <tfoot>
+                <tr id="total-row" class="total-row">
+                    <td>TOTAL</td>
+                    <td id="total-meinhas" style="text-align: center;">0</td>
+                    <td id="total-percent" style="text-align: center;">0%</td>
+                    <td id="total-status" style="text-align: center;">-</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
     <div class="nav-bottom">
         <a href="portal_aluno.html" class="btn-outline">👤 Meu Perfil</a>
         <a href="#" onclick="logout()" class="btn-outline"
@@ -155,39 +273,29 @@
 
         async function loadRanking() {
             try {
+                // 1. Carregar Ranking Geral
                 const res = await fetch('/api/ranking');
                 const houses = await res.json();
 
-                // Buscar cartas ativas
                 const cardsRes = await fetch('/api/active-cards');
                 const activeCards = cardsRes.ok ? await cardsRes.json() : [];
 
                 const container = document.getElementById('ranking-list');
                 container.innerHTML = '';
 
-                if (!houses || houses.length === 0) {
-                    container.innerHTML = '<p>Nenhuma casa encontrada no ranking. Verifique o cadastro.</p>';
-                    return;
-                }
-
-
                 houses.forEach((house, index) => {
                     const div = document.createElement('div');
                     div.className = `house-card rank-${index + 1}`;
                     div.style.borderLeft = `5px solid ${house.color}`;
-
-                    const crestUrl = house.crest || '../assets/shield_placeholder.png';
-
-                    // Buscar carta ativa desta casa (épica ou lendária)
                     const houseCard = activeCards.find(ac => ac.house_id === house.id);
                     const cardIcon = houseCard
-                        ? `<img src="${houseCard.image_path}" class="active-card-icon" title="${houseCard.name} - ${houseCard.rarity}" style="cursor: pointer;" onclick='openCardViewer(${JSON.stringify(houseCard).replace(/'/g, "&#39;")})'>`
+                        ? `<img src="${houseCard.image_path}" class="active-card-icon" onclick='openCardViewer(${JSON.stringify(houseCard).replace(/'/g, "&#39;")})'>`
                         : '';
 
                     div.innerHTML = `
                     <div class="house-info">
                         <span class="rank-number">#${index + 1}</span>
-                        <img src="${crestUrl}" class="crest" onerror="this.src='../assets/shield_placeholder.png'">
+                        <img src="${house.crest || '../assets/shield_placeholder.png'}" class="crest" onerror="this.src='../assets/shield_placeholder.png'">
                         <span class="house-name" style="color:${house.color}">${house.name}</span>
                         ${cardIcon}
                     </div>
@@ -195,6 +303,47 @@
                   `;
                     container.appendChild(div);
                 });
+
+                // 2. Carregar Seção de Meinhas da Casa do Aluno
+                const detailedRes = await fetch(`/api/ranking/minha-casa-detalhado?user_id=${user.id}`);
+                if (detailedRes.ok) {
+                    const data = await detailedRes.json();
+                    document.getElementById('meinhas-section-container').style.display = 'block';
+                    document.getElementById('meinhas-title').textContent = `📊 MEINHAS DA SUA CASA: ${data.house.toUpperCase()}`;
+                    document.getElementById('meta-val').textContent = data.meta;
+                    document.getElementById('achieved-val').textContent = data.total_meinhas;
+                    
+                    const percentTotal = Math.min(100, (data.total_meinhas / data.meta) * 100);
+                    document.getElementById('progress-bar-fill').style.width = `${percentTotal}%`;
+                    document.getElementById('progress-text').textContent = `${percentTotal.toFixed(1)}%`;
+                    
+                    const statusBadge = document.getElementById('meinhas-status');
+                    if (data.points_achieved) {
+                        statusBadge.textContent = '✅ META ATINGIDA!';
+                        statusBadge.className = 'status-badge status-ok';
+                    } else {
+                        statusBadge.textContent = 'EM PROGRESSO';
+                        statusBadge.className = 'status-badge status-pending';
+                    }
+
+                    const athletesList = document.getElementById('athletes-list');
+                    athletesList.innerHTML = data.athletes.map(ath => {
+                        let starsHtml = '';
+                        for(let i=0; i<ath.stars; i++) starsHtml += '⭐';
+                        return `
+                            <tr>
+                                <td>${ath.name}</td>
+                                <td style="text-align: center;">${ath.meinhas}</td>
+                                <td style="text-align: center;">${ath.percentage}%</td>
+                                <td style="text-align: center;">${starsHtml}</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    document.getElementById('total-meinhas').textContent = data.total_meinhas;
+                    document.getElementById('total-percent').textContent = `${((data.total_meinhas / data.meta) * 100).toFixed(1)}%`;
+                    document.getElementById('total-status').textContent = data.points_achieved ? '✅ META OK!' : '-';
+                }
 
             } catch (e) {
                 console.error(e);
@@ -210,5 +359,4 @@
         loadRanking();
     </script>
 </body>
-
 </html>
