@@ -4,36 +4,48 @@
 <head>
   <meta charset="UTF-8">
   <title>Agenda - Marcha</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="agenda.css">
-  <script>
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user || (user.role !== 'admin' && user.role !== 'fisio')) {
-      window.location.href = 'login.html';
-    }
-  </script>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/agenda.css">
+  <script src="/auth_guard.js"></script>
 </head>
 
 <body>
-  <header class="topbar">
-    <a href="index.html" class="brand">
-      <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
-      <span class="title">Clínica Marcha</span>
-    </a>
-    <nav class="nav-links">
-      <a href="index.html" class="nav-item">🏠 <span>Início</span></a>
-      <a href="agenda.html" class="nav-item active">📅 <span>Agenda</span></a>
-      <a href="pacientes.html" class="nav-item">👥 <span>Clientes & Alunos</span></a>
-      <a href="financeiro.html" class="nav-item">💰 <span>Financeiro</span></a>
-      <a href="profissionais.html" class="nav-item">🥼 <span>Profissionais</span></a>
-      <a href="#" onclick="logout()" class="nav-item" style="color: #f44336;">🚪 <span>Sair</span></a>
+  <header class="global-navbar"
+    style="background: #000033; color: white; display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+    <div class="nav-brand" style="display: flex; align-items: center; gap: 15px; cursor: pointer;"
+      onclick="window.location.href='index.html'">
+      <img src="../assets/logo_marcha.png" alt="Logo"
+        style="height: 40px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));">
+      <span style="font-size: 1.2rem; font-weight: bold; letter-spacing: 1px;">Marcha</span>
+    </div>
+    <nav class="nav-links" style="display: flex; gap: 20px; align-items: center;">
+      <a href="pacientes.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Pacientes</a>
+      <a href="agenda.html"
+        style="color: white; text-decoration: none; font-weight: 600; font-size: 1rem; border-bottom: 2px solid #FFD700;">Agenda</a>
+      <a href="profissionais.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Profissionais</a>
+      <a href="financeiro.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Financeiro</a>
+      <a href="cup.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Marcha Cup</a>
+      <button onclick="doLogoff()"
+        style="background: #e53935; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 10px; transition: 0.2s;">Sair</button>
     </nav>
   </header>
+  <script>
+    function doLogoff() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+  </script>
 
   <main>
     <div class="page-header">
       <h1>Agenda de Atendimentos</h1>
       <div class="header-actions">
+        <button class="btn-secondary" onclick="loadPendingMakeups()" style="color:#E65100; border-color:#E65100;">⚠️
+          Reposições Pendentes</button>
         <button class="btn-secondary" onclick="previousWeek()">← Semana Anterior</button>
         <button class="btn-secondary" onclick="today()">Hoje</button>
         <button class="btn-secondary" onclick="nextWeek()">Próxima Semana →</button>
@@ -48,6 +60,20 @@
     </section>
 
     <section class="card" id="agenda-container">
+      <!-- Reposições Banner -->
+      <div id="makeup-banner"
+        style="display:none; background:#FFF3E0; border-left:4px solid #FF9800; padding:15px; margin-bottom:15px; border-radius:4px;">
+        <h3
+          style="color:#E65100; margin-top:0; font-size:1.1rem; display:flex; justify-content:space-between; align-items:center;">
+          Aulas de Reposição Pendentes (Faltas Justificadas)
+          <button onclick="document.getElementById('makeup-banner').style.display='none'"
+            style="background:none; border:none; color:#E65100; cursor:pointer; font-weight:bold;">&times;</button>
+        </h3>
+        <div id="makeup-list" style="display:flex; flex-direction:column; gap:10px; max-height:200px; overflow-y:auto;">
+          <!-- Items inseridos dinamicamente -->
+        </div>
+      </div>
+
       <div id="agenda-view"></div>
     </section>
   </main>
@@ -64,19 +90,15 @@
           <select id="appointment-patient_id" name="patient_id" required></select>
         </div>
 
-        <!-- Title Removed - Auto-generated Backend -->
+        <div class="form-group">
+          <label>Título *</label>
+          <input type="text" id="appointment-title" name="title" required>
+        </div>
 
         <div class="form-row">
           <div class="form-group">
             <label>Data *</label>
             <input type="date" id="appointment-date" name="appointment_date" required>
-          </div>
-          <div class="form-group">
-            <label>Recorrência</label>
-            <select id="appointment-recurrence" name="recurrence">
-              <option value="none">Agendamento Único</option>
-              <option value="continuous">Agendamento Contínuo (12 semanas)</option>
-            </select>
           </div>
           <div class="form-group">
             <label>Horário Início *</label>
@@ -91,27 +113,20 @@
         <div class="form-row">
           <div class="form-group">
             <label>Tipo de Serviço</label>
-            <select id="appointment-service_type" name="service_type" onchange="updateServicePrice()">
-              <option value="Pilates">Pilates</option>
-              <option value="Yoga">Yoga</option>
-              <option value="Treino Funcional">Treino Funcional</option>
+            <select id="appointment-service_type" name="service_type">
               <option value="Fisioterapia">Fisioterapia</option>
-              <option value="Liberação Miofascial">Liberação Miofascial</option>
-              <option value="Condicionamento Físico">Condicionamento Físico</option>
+              <option value="Pilates">Pilates</option>
               <option value="Avaliação">Avaliação</option>
+              <option value="Retorno">Retorno</option>
+              <option value="Consulta">Consulta</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>Valor do Serviço (R$)</label>
-            <input type="number" step="0.01" id="appointment-price" name="price" placeholder="0,00">
-          </div>
-          <div class="form-group">
+          <div class="form-group" id="professional-container">
             <label>Profissional</label>
-            <input type="text" id="appointment-professional" name="professional">
+            <select id="appointment-professional" name="professional">
+              <option value="">Carregando profissionais...</option>
+            </select>
           </div>
-        </div>
-
-        <div class="form-row">
           <div class="form-group">
             <label>Status</label>
             <select id="appointment-status" name="status">
@@ -119,76 +134,43 @@
               <option value="confirmado">Confirmado</option>
               <option value="realizado">Realizado</option>
               <option value="cancelado">Cancelado</option>
-              <option value="faltou">Faltou</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Pagamento</label>
-            <select id="appointment-payment_method" name="payment_method">
-              <option value="">Padrão (Pendente)</option>
-              <option value="dinheiro">Dinheiro</option>
-              <option value="pix">PIX</option>
-              <option value="cartao_credito">Cartão de Crédito</option>
-              <option value="cartao_debito">Cartão de Débito</option>
-              <option value="gympass">Gympass</option>
+              <option value="falta">Falta (Injustificada)</option>
+              <option value="falta_justificada">Falta Justificada</option>
             </select>
           </div>
         </div>
 
-        <!-- Description Removed -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Valor do Repasse/Procedimento (R$)</label>
+            <input type="number" id="appointment-procedure_value" name="procedure_value" step="0.01" min="0"
+              placeholder="0.00">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Descrição</label>
+          <textarea id="appointment-description" name="description" rows="3"></textarea>
+        </div>
 
         <div class="form-group">
           <label>Observações</label>
           <textarea id="appointment-notes" name="notes" rows="2"></textarea>
         </div>
 
-        <div class="form-actions">
-          <button type="button" class="btn-success" onclick="sendWhatsAppReminder()"
-            style="background:#25D366; color:white; margin-right:auto;">📱 Enviar no Zap</button>
+        <div class="form-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button type="submit" class="btn-primary">Salvar</button>
-          <button type="button" class="btn-secondary" onclick="closeAppointmentModal()">Cancelar</button>
+          <button type="button" class="btn-secondary" onclick="closeAppointmentModal()">Fechar</button>
+          <button type="button" id="btn-cancel-appointment" class="btn-secondary"
+            style="background-color: #f44336; color: white; border-color: #d32f2f; display: none;"
+            onclick="cancelAppointment()">Cancelar Agendamento</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal Confirmar Presença -->
-  <div id="modal-confirm-presence" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title">Confirmar Presença</h3>
-        <button class="btn-close-modal" onclick="closeConfirmModal()">&times;</button>
-      </div>
-      <p>Confirme os dados financeiros desta aula:</p>
-      <form id="form-confirm-presence">
-        <input type="hidden" id="confirm-appt-id">
-        <div class="form-group">
-          <label>Valor Pago (R$)</label>
-          <input type="number" id="confirm-amount" step="0.01" min="0">
-        </div>
-        <div class="form-group">
-          <label>Forma de Pagamento</label>
-          <select id="confirm-payment-method">
-            <option value="dinheiro">Dinheiro</option>
-            <option value="pix">PIX</option>
-            <option value="cartao_credito">Cartão de Crédito</option>
-            <option value="cartao_debito">Cartão de Débito</option>
-            <option value="gympass">Gympass</option>
-            <option value="transferencia">Transferência</option>
-          </select>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn-primary">Confirmar e Pontuar 🏆</button>
-          <button type="button" class="btn-warning" onclick="confirmAbsence()"
-            style="background-color: #ff9800; color: white;">Aluno Faltou</button>
-          <button type="button" class="btn-secondary" onclick="closeConfirmModal()">Cancelar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script src="utils.js"></script>
-  <script src="agenda.js?v=10"></script>
+  <script src="/utils.js"></script>
+  <script src="/agenda.js"></script>
 </body>
 
 </html>

@@ -107,6 +107,18 @@
                 <input type="tel" name="phone" required placeholder="(DDD) 99999-9999">
             </div>
 
+            <div class="form-group">
+                <label>Tipo de Convênio *</label>
+                <select name="health_insurance" required>
+                    <option value="">Selecione...</option>
+                    <option value="Particular">Particular</option>
+                    <option value="Gympass">Gympass</option>
+                    <option value="TotalPass">TotalPass</option>
+                    <option value="ClassPass">ClassPass</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+
             <button type="submit" class="btn-submit">Enviar Cadastro</button>
         </form>
     </div>
@@ -153,12 +165,13 @@
 
             const name = e.target.name.value;
             const phone = e.target.phone.value;
+            const health_insurance = e.target.health_insurance.value;
 
             try {
                 const res = await fetch('/api/public/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token, name, phone })
+                    body: JSON.stringify({ token, name, phone, health_insurance })
                 });
 
                 if (res.ok) {

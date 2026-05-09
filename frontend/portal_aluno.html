@@ -639,6 +639,23 @@
         </div>
     </div>
 
+    <!-- Tandera Result Modal -->
+    <div id="tanderaModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 style="color: var(--gold); margin:0;">👁️ Olhos de Tandera</h3>
+                <span class="close-modal" onclick="closeTanderaModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="tandera-instruction" style="margin-bottom: 15px; text-align: center;">Cartas detectadas na mão do adversário:</p>
+                <div id="tandera-cards-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <!-- Populando dinamicamente -->
+                </div>
+                <button class="btn-primary" onclick="location.reload()" style="width: 100%; margin-top: 20px;">Fechar e Sincronizar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- FAB CHAT (empilhado acima do ranking) -->
     <button
         id="fab-chat"
@@ -1166,7 +1183,7 @@
 
         // Inicia verificação
         checkCampoBatalha();
-    </script>
+
         // --- MODAL DE ALVO (GENÉRICO) ---
         let pendingCardForTarget = null;
 
@@ -1206,6 +1223,34 @@
 
             await executeCardUse(pendingCardForTarget, targetHouseId);
             closeTargetModal();
+        }
+
+        function showTanderaResult(cards) {
+            const list = document.getElementById('tandera-cards-list');
+            list.innerHTML = '';
+            if (!cards || cards.length === 0) {
+                list.innerHTML = '<p style="grid-column: 1/-1; color: #888; font-style: italic;">Adversário não possui cartas na mão.</p>';
+            } else {
+                cards.forEach(c => {
+                    const div = document.createElement('div');
+                    div.style.background = 'rgba(255,255,255,0.05)';
+                    div.style.padding = '10px';
+                    div.style.borderRadius = '8px';
+                    div.style.border = '1px solid rgba(255,215,0,0.2)';
+                    div.innerHTML = `
+                        <div style="font-weight: bold; color: var(--gold);">${c.name}</div>
+                        <div style="font-size: 0.7rem; color: #aaa;">${c.rarity}</div>
+                        <div style="font-size: 0.75rem; margin-top: 4px;">${c.description}</div>
+                    `;
+                    list.appendChild(div);
+                });
+            }
+            document.getElementById('tanderaModal').style.display = 'block';
+        }
+
+        function closeTanderaModal() {
+            document.getElementById('tanderaModal').style.display = 'none';
+            location.reload();
         }
 
         // --- LÓGICA UNIFICADA DE USO ---
@@ -1251,8 +1296,12 @@
 
                 const data = await res.json();
                 if (res.ok) {
-                    alert(data.message || "Poder ativado!");
-                    location.reload();
+                    if (card.name === "Tandera" && data.cards) {
+                        showTanderaResult(data.cards);
+                    } else {
+                        alert(data.message || "Poder ativado!");
+                        location.reload();
+                    }
                 } else {
                     alert("Erro: " + data.error);
                 }

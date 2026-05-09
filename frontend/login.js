@@ -7,13 +7,6 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     const errorMsg = document.getElementById('error-msg');
     const btn = document.querySelector('.btn-login');
 
-    // Basic cleanup for CPF if user typed special chars (though placeholder says only numbers)
-    // If it looks like a CPF (11 digit-ish), strip non-digits.
-    // Actually, let's just strip non-digits if it seems to be numeric-intent to match stored plain numbers?
-    // But username/email are also allowed. 
-    // If it contains '@' it's email. If it contains letters, it's username. 
-    // If it's only digits/dots/dashes, likely CPF.
-
     errorMsg.textContent = '';
     btn.textContent = 'Verificando...';
     btn.disabled = true;
@@ -32,17 +25,20 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         }
 
         // Success
+        localStorage.setItem('currentUser', JSON.stringify(data));
         localStorage.setItem('user', JSON.stringify(data));
+        localStorage.setItem('patient_id', data.id);
+        localStorage.setItem('is_admin', data.role === 'admin' ? 'true' : 'false');
+        localStorage.setItem('role', data.role || 'atleta');
         console.log("Login Success:", data);
 
         // Redirect Logic
-        if (data.role === 'admin') {
-            window.location.href = 'index.html';
-        } else if (data.role === 'fisio') {
-            window.location.href = 'agenda.html'; // Fisioterapeuta -> Agenda
+        if (data.role === 'admin' || data.role === 'fisio') {
+            window.location.href = 'index.html'; // Profissionais -> Dashboard Completo
         } else {
-            window.location.href = 'portal_aluno.html';
+            window.location.href = 'portal_aluno.html'; // Alunos/Pacientes -> Portal
         }
+
 
     } catch (err) {
         console.error(err);

@@ -6,39 +6,53 @@
   <title>Pacientes - Marcha</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="pacientes.css">
-  <script>
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user || (user.role !== 'admin' && user.role !== 'fisio')) {
-      window.location.href = 'login.html';
-    }
-  </script>
+  <script src="auth_guard.js"></script>
 </head>
 
 <body>
-  <header class="topbar">
-    <a href="index.html" class="brand">
-      <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
-      <span class="title">Clínica Marcha</span>
-    </a>
-    <nav class="nav-links">
-      <a href="index.html" class="nav-item">🏠 <span>Início</span></a>
-      <a href="agenda.html" class="nav-item">📅 <span>Agenda</span></a>
-      <a href="pacientes.html" class="nav-item active">👥 <span>Clientes & Alunos</span></a>
-      <a href="financeiro.html" class="nav-item">💰 <span>Financeiro</span></a>
-      <a href="profissionais.html" class="nav-item">🥼 <span>Profissionais</span></a>
-      <a href="#" onclick="logout()" class="nav-item" style="color: #f44336;">🚪 <span>Sair</span></a>
+  <header class="global-navbar"
+    style="background: #000033; color: white; display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+    <div class="nav-brand" style="display: flex; align-items: center; gap: 15px; cursor: pointer;"
+      onclick="window.location.href='index.html'">
+      <img src="../assets/logo_marcha.png" alt="Logo"
+        style="height: 40px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));">
+      <span style="font-size: 1.2rem; font-weight: bold; letter-spacing: 1px;">Marcha</span>
+    </div>
+    <nav class="nav-links" style="display: flex; gap: 20px; align-items: center;">
+      <a href="pacientes.html"
+        style="color: white; text-decoration: none; font-weight: 600; font-size: 1rem; border-bottom: 2px solid #FFD700;">Pacientes</a>
+      <a href="agenda.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Agenda</a>
+      <a href="profissionais.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Profissionais</a>
+      <a href="financeiro.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Financeiro</a>
+      <a href="cup.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Marcha Cup</a>
+      <button onclick="doLogoff()"
+        style="background: #e53935; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 10px; transition: 0.2s;">Sair</button>
     </nav>
   </header>
+  <script>
+    function doLogoff() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+  </script>
 
   <main>
     <div class="page-header">
-      <h1>Clientes & Alunos</h1>
-      <button class="btn-primary" onclick="openNewPatient()">+ Novo Cadastro</button>
-      <button class="btn-secondary" onclick="generateInviteLink()" style="margin-left:10px;">🔗 Gerar Link
-        (24h)</button>
+      <h1>Cadastro de Pacientes</h1>
+      <button class="btn-primary" onclick="openNewPatient()">+ Novo Paciente</button>
     </div>
 
     <section class="card search-section">
+      <div class="tabs-container" style="margin-bottom: 15px; display: flex; gap: 10px;">
+        <button id="tab-students" class="tab-btn active" onclick="switchTab('student')">👨‍🎓 Alunos /
+          Pacientes</button>
+        <button id="tab-team" class="tab-btn" onclick="switchTab('team')">👔 Equipe / Profissionais</button>
+      </div>
+
       <input type="text" id="search-input" placeholder="Buscar por nome, CPF ou telefone..." onkeyup="searchPatients()">
       <label class="filter-active">
         <input type="checkbox" id="filter-active" checked onchange="loadPatients()">
@@ -49,7 +63,7 @@
     <section class="card">
       <div id="patients-list-container">
         <ul id="patients-list">
-          <li>Carregando...</li>
+          <li>Carregando pacientes...</li>
         </ul>
       </div>
     </section>
@@ -58,32 +72,12 @@
   <!-- Modal Novo/Editar Paciente -->
   <div id="modal-patient" class="modal hidden">
     <div class="modal-content modal-large">
-      <div class="modal-header">
-        <h3 id="modal-patient-title" class="modal-title">Novo Cadastro - Clínica Marcha</h3>
-        <button class="btn-close-modal" onclick="closePatientModal()">&times;</button>
-      </div>
+      <h3 id="modal-patient-title">Novo Paciente</h3>
       <form id="form-patient">
         <input type="hidden" id="patient-id" name="id">
 
         <div class="form-row">
-          <div class="form-group" style="text-align: center;">
-            <div class="photo-preview-container" style="margin-bottom: 10px;">
-              <img id="patient-photo-preview" src="../assets/default-user.png" alt="Foto"
-                style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 2px solid #ddd;">
-            </div>
-            <label class="btn-secondary btn-sm" style="cursor: pointer; display: inline-block;">
-              📷 Escolher Foto
-              <input type="file" id="patient-photo" name="photo" accept="image/*" style="display: none;"
-                onchange="previewPhoto(this)">
-            </label>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <!-- Type Field Hidden/Disabled as requested -->
-          <input type="hidden" name="type" value="Cliente">
-
-          <div class="form-group" style="flex: 2;">
+          <div class="form-group">
             <label>Nome Completo *</label>
             <input type="text" id="patient-name" name="name" required>
           </div>
@@ -95,20 +89,6 @@
             <input type="text" id="patient-cpf" name="cpf" placeholder="000.000.000-00">
           </div>
           <div class="form-group">
-            <label>Login (Username)</label>
-            <input type="text" id="patient-username" name="username" placeholder="teste.aluno">
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Casa (Marcha Cup) 🏆</label>
-            <select id="patient-house" name="house_id">
-              <option value="">-- Sem Casa --</option>
-              <!-- Populated by JS -->
-            </select>
-          </div>
-          <div class="form-group">
             <label>Data de Nascimento</label>
             <input type="date" id="patient-birth_date" name="birth_date">
           </div>
@@ -116,16 +96,12 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label>Telefone *</label>
-            <input type="tel" id="patient-phone" name="phone" placeholder="(00) 00000-0000" required>
+            <label>Telefone</label>
+            <input type="tel" id="patient-phone" name="phone" placeholder="(00) 00000-0000">
           </div>
           <div class="form-group">
             <label>E-mail</label>
             <input type="email" id="patient-email" name="email">
-          </div>
-          <div class="form-group">
-            <label>Senha de Acesso</label>
-            <input type="text" id="patient-password" name="password" placeholder="Padrão: aluno">
           </div>
         </div>
 
@@ -163,13 +139,25 @@
         <div class="form-row">
           <div class="form-group">
             <label>Convênio</label>
-            <input type="text" id="patient-health_insurance" name="health_insurance">
-          </div>
-          <div class="form-group">
-            <label>Número do Convênio</label>
-            <input type="text" id="patient-health_insurance_number" name="health_insurance_number">
+            <select id="patient-health_insurance" name="health_insurance">
+              <option value="">Selecione...</option>
+              <option value="Particular">Particular</option>
+              <option value="Gympass">Gympass</option>
+              <option value="TotalPass">TotalPass</option>
+              <option value="ClassPass">ClassPass</option>
+              <option value="Outro">Outro</option>
+            </select>
           </div>
         </div>
+ 
+         <div class="form-row">
+           <div class="form-group">
+             <label>Casa na Marcha Cup <span style="color:red">*</span></label>
+             <select id="patient-house_id" name="house_id" required>
+               <option value="">Selecione a Casa...</option>
+             </select>
+           </div>
+         </div>
 
         <div class="form-group">
           <label>Observações</label>

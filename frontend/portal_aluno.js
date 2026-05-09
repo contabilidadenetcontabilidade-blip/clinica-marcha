@@ -51,9 +51,11 @@ function renderHouseCard(data) {
     // Set nice gradient border or background
     container.style.borderTop = `5px solid ${house.color}`;
 
+    const textContrastColor = house.name.toLowerCase() === 'chair' ? '#000000' : house.color;
+
     container.innerHTML = `
     <img src="${house.crest}" alt="${house.name}" class="house-crest-large">
-    <div class="house-name" style="color: ${house.color}">${house.name}</div>
+    <div class="house-name" style="color: ${textContrastColor}">${house.name}</div>
     <div>
       <span class="my-points">${athlete.totalScore}</span>
       <span class="points-label">Pontos Pessoais</span>

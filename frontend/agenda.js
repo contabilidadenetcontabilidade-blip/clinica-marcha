@@ -1,6 +1,19 @@
-// No changes here yet, checking backend first.
+const getTodayDate = () => {
+  return new Date();
+};
+
 let currentView = 'day';
-let currentDate = new Date();
+let currentDate = getTodayDate();
+
+// Mapa de valores padrão por convênio
+const INSURANCE_VALUES = {
+  'Particular': 150.00,
+  'Gympass': 22.20,
+  'TotalPass': 22.00,
+  'ClassPass': 22.00,
+  'Outro': 120.00
+};
+let allPatients = [];
 let currentAppointments = [];
 
 function setView(view) {
@@ -21,17 +34,30 @@ function nextWeek() {
 }
 
 function today() {
-  currentDate = new Date();
+  currentDate = getTodayDate();
   loadAgenda();
 }
 
 function formatDate(date) {
-  return date.toISOString().split('T')[0];
+  // Retorna a data em yyyy-mm-dd para a query
+  // Resolve bug de fuso horário (evita rollback em data string)
+  let d = date;
+  if (typeof date === 'string') {
+    d = new Date(date.includes('T') ? date : date + 'T00:00:00');
+  }
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function formatDateDisplay(date) {
+  let d = date;
+  if (typeof date === 'string') {
+    d = new Date(date.includes('T') ? date : date + 'T00:00:00');
+  }
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  return date.toLocaleDateString('pt-BR', options);
+  return d.toLocaleDateString('pt-BR', options);
 }
 
 async function loadAgenda() {
@@ -43,13 +69,14 @@ async function loadAgenda() {
       url += `date=${formatDate(currentDate)}`;
       document.getElementById('current-date-display').textContent = formatDateDisplay(currentDate);
     } else {
-      const startDate = new Date(currentDate);
-      startDate.setDate(startDate.getDate() - startDate.getDay());
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 6);
+      // Cálculo seguro de semana evitando timezone slip
+      const curr = new Date(currentDate.getTime());
+      const first = curr.getDate() - curr.getDay();
+      const startDate = new Date(curr.setDate(first));
+      const endDate = new Date(curr.setDate(curr.getDate() + 6));
       url += `start_date=${formatDate(startDate)}&end_date=${formatDate(endDate)}`;
       document.getElementById('current-date-display').textContent =
-        `Semana de ${formatDate(startDate)} a ${formatDate(endDate)}`;
+        `Semana de ${formatDateDisplay(startDate)} a ${formatDateDisplay(endDate)}`;
     }
 
     const res = await fetch(url);
@@ -61,9 +88,77 @@ async function loadAgenda() {
 
     currentAppointments = await res.json();
     renderAgenda();
+
+    // Alerta sutil se houver reposições
+    checkPendingMakeupsQuietly();
+
   } catch (err) {
     console.error(err);
     showError('Erro inesperado ao carregar agenda');
+  }
+}
+
+async function checkPendingMakeupsQuietly() {
+  try {
+    const res = await fetch('/api/appointments/pending-makeups');
+    if (res.ok) {
+      const makeups = await res.json();
+      if (makeups.length > 0) {
+        // Could light up a badge on the button
+      }
+    }
+  } catch (e) { console.error('Silent fetch failed', e); }
+}
+
+async function loadPendingMakeups() {
+  try {
+    showLoading('agenda-view', 'Buscando reposições pendentes...');
+    const res = await fetch('/api/appointments/pending-makeups');
+    if (!res.ok) throw new Error('Falha ao buscar reposições.');
+    const makeups = await res.json();
+
+    const banner = document.getElementById('makeup-banner');
+    const list = document.getElementById('makeup-list');
+    list.innerHTML = '';
+
+    if (makeups.length === 0) {
+      list.innerHTML = '<div style="color:#666; font-size:0.9rem;">Nenhuma aula de reposição pendente no momento.</div>';
+    } else {
+      makeups.forEach(m => {
+        const d = new Date(m.appointment_date + 'T00:00:00');
+        const formattedDate = d.toLocaleDateString('pt-BR');
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.7); padding:10px; border-radius:4px; border:1px solid #FFCC80;';
+        div.innerHTML = `
+          <div>
+            <strong style="color:#E65100;">${m.patient_name || 'Paciente Desconhecido'}</strong> 
+            <span style="color:#555; font-size:0.9rem;">- Falta em ${formattedDate} (${m.title})</span>
+          </div>
+          <button onclick="resolveMakeup(${m.id})" style="background:#FF9800; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:0.85rem;">Dar Baixa</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // Restaura a visualização da agenda e mostra a lista
+    renderAgenda();
+    banner.style.display = 'block';
+
+  } catch (err) {
+    showError('Erro ao buscar reposições pendentes');
+    renderAgenda();
+  }
+}
+
+async function resolveMakeup(id) {
+  if (!confirm('Deseja dar baixa nesta reposição? (Isto indica que a aula foi reposta ou o aluno perdeu o direito)')) return;
+  try {
+    const res = await fetch(`/api/appointments/${id}/resolve-makeup`, { method: 'PUT' });
+    if (!res.ok) throw new Error('Erro ao baixar.');
+    showSuccess('Reposição baixada com sucesso.');
+    loadPendingMakeups();
+  } catch (e) {
+    showError(e.message);
   }
 }
 
@@ -78,18 +173,16 @@ function renderAgenda() {
   }
 }
 
-// FIX DAY VIEW
 function renderDayView() {
   const container = document.getElementById('agenda-view');
   const dayAppointments = currentAppointments.filter(apt =>
-    (apt.appointment_date || '').split('T')[0] === formatDate(currentDate)
+    apt.appointment_date === formatDate(currentDate)
   );
 
   if (!dayAppointments.length) {
     container.innerHTML = '<div class="agenda-empty">Nenhum agendamento para este dia</div>';
     return;
   }
-  // ... (rest of function omitted for brevity, logic continues)
 
   dayAppointments.sort((a, b) => a.start_time.localeCompare(b.start_time));
 
@@ -120,8 +213,11 @@ function renderDayView() {
 
 function renderWeekView() {
   const container = document.getElementById('agenda-view');
-  const weekStart = new Date(currentDate);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
+  // Cálculo seguro do início da semana baseado no currentDate exato
+  const curr = new Date(currentDate.getTime());
+  const first = curr.getDate() - curr.getDay();
+  const weekStart = new Date(curr.setDate(first));
 
   const grid = document.createElement('div');
   grid.className = 'agenda-week-view';
@@ -133,28 +229,30 @@ function renderWeekView() {
 
   // Headers dos dias
   for (let i = 0; i < 7; i++) {
-    const day = new Date(weekStart);
-    day.setDate(day.getDate() + i);
+    const day = new Date(weekStart.getTime());
+    day.setDate(weekStart.getDate() + i);
     const header = document.createElement('div');
     header.className = 'week-day-header';
     header.textContent = day.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' });
     grid.appendChild(header);
   }
 
+  // Espaçador para a coluna de horas (para alinhar a grade)
+  const timeColumnPlaceholder = document.createElement('div');
+  timeColumnPlaceholder.className = 'time-column';
+  grid.appendChild(timeColumnPlaceholder);
+
   // Colunas dos dias
   for (let i = 0; i < 7; i++) {
-    const day = new Date(weekStart);
-    day.setDate(day.getDate() + i);
+    const day = new Date(weekStart.getTime());
+    day.setDate(weekStart.getDate() + i);
     const dayStr = formatDate(day);
-    const isToday = formatDate(new Date()) === dayStr;
+    const isToday = formatDate(getTodayDate()) === dayStr;
 
     const dayColumn = document.createElement('div');
     dayColumn.className = `week-day ${isToday ? 'week-day-today' : ''}`;
 
-    // FIX WEEK VIEW COMPARISON
-    const dayAppointments = currentAppointments.filter(apt =>
-      (apt.appointment_date || '').split('T')[0] === dayStr
-    );
+    const dayAppointments = currentAppointments.filter(apt => apt.appointment_date === dayStr);
     dayAppointments.sort((a, b) => a.start_time.localeCompare(b.start_time));
 
     dayAppointments.forEach(apt => {
@@ -182,66 +280,20 @@ function createAppointmentItem(apt) {
 
   const patient = document.createElement('div');
   patient.className = 'appointment-patient';
-  patient.style.display = 'flex';
-  patient.style.alignItems = 'center';
-  patient.style.gap = '8px';
+  patient.textContent = apt.patient_name || 'Sem paciente';
 
-  // Photo
-  if (apt.patient_photo) {
-    const img = document.createElement('img');
-    img.src = apt.patient_photo;
-    img.style.width = '30px';
-    img.style.height = '30px';
-    img.style.borderRadius = '50%';
-    img.style.objectFit = 'cover';
-    patient.appendChild(img);
-  }
+  const status = document.createElement('span');
+  status.className = `appointment-status status-${apt.status}`;
+  status.textContent = apt.status.charAt(0).toUpperCase() + apt.status.slice(1);
 
-  // Name & WhatsApp
-  const nameSpan = document.createElement('span');
-  if (apt.patient_name && apt.patient_phone) {
-    const rawPhone = apt.patient_phone.replace(/\D/g, '');
-    const dateObj = new Date(apt.appointment_date);
-    // Fix timezone offset issue manually or use string split for display date
-    const dateStr = dateObj.toLocaleDateString('pt-BR');
-
-    if (rawPhone) {
-      const msg = encodeURIComponent(`Olá ${apt.patient_name.split(' ')[0]}, confirmamos sua aula de Pilates na Clínica Marcha em ${dateStr} às ${apt.start_time.substring(0, 5)}.`);
-      nameSpan.innerHTML = `
-            ${apt.patient_name} 
-            <button class="btn-icon-wa" title="Confirmar no WhatsApp" onclick="event.stopPropagation(); window.open('https://wa.me/55${rawPhone}?text=${msg}', '_blank')">
-                📱
-            </button>
-        `;
-    } else {
-      nameSpan.textContent = apt.patient_name;
-    }
-  } else {
-    nameSpan.textContent = apt.patient_name || 'Sem paciente';
-  }
-  patient.appendChild(nameSpan);
-
-  const status = document.createElement('div');
-  status.style.display = 'flex';
-  status.style.alignItems = 'center';
-  status.style.gap = '5px';
-
-  const statusSpan = document.createElement('span');
-  statusSpan.className = `appointment-status status-${apt.status}`;
-  statusSpan.textContent = apt.status.charAt(0).toUpperCase() + apt.status.slice(1);
-  status.appendChild(statusSpan);
-
-  // Botão Confirmar Presença
-  if (apt.status === 'agendado') {
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn-mini-confirm';
-    confirmBtn.innerHTML = '✅';
-    confirmBtn.title = 'Confirmar Presença';
-    confirmBtn.onclick = (e) => {
-      e.stopPropagation();
-      openConfirmModal(apt.id);
-    };
-    status.appendChild(confirmBtn);
+  if (apt.status === 'cancelado') {
+    item.style.backgroundColor = '#f1f1f1';
+    item.style.color = '#9e9e9e';
+    item.style.borderLeftColor = '#9e9e9e';
+    title.style.textDecoration = 'line-through';
+    time.style.textDecoration = 'line-through';
+    status.style.backgroundColor = '#e0e0e0';
+    status.style.color = '#757575';
   }
 
   item.appendChild(time);
@@ -257,58 +309,81 @@ async function loadPatientsForSelect() {
     const res = await fetch('/api/patients?active=true');
     if (!res.ok) return [];
     const patients = await res.json();
+    allPatients = patients; // Armazena para consulta de convênio
     const select = document.getElementById('appointment-patient_id');
     select.innerHTML = '<option value="">Selecione um paciente</option>';
     patients.forEach(p => {
       const option = document.createElement('option');
       option.value = p.id;
-      option.textContent = `${p.name} (${p.type || 'Pessoa'})`;
+      option.textContent = p.name;
       select.appendChild(option);
     });
+    // Ao trocar de paciente, sugere o valor do convênio
+    select.onchange = () => suggestProcedureValue(select.value);
   } catch (err) {
     console.error('Erro ao carregar pacientes:', err);
   }
 }
 
-// ------------------------------------
-// New Auto-Price Logic
-// ------------------------------------
-const SERVICE_PRICES = {
-  'Pilates': 22.39,
-  'Yoga': 16.92,
-  'Treino Funcional': 14.61,
-  'Fisioterapia': 100.00, // Defaul fallback
-  'Liberação Miofascial': 80.00,
-  'Condicionamento Físico': 30.00,
-  'Avaliação': 0.00
-};
-
-function updateServicePrice() {
-  const service = document.getElementById('appointment-service_type').value;
-  const priceInput = document.getElementById('appointment-price');
-  if (SERVICE_PRICES[service] !== undefined) {
-    priceInput.value = SERVICE_PRICES[service].toFixed(2);
+function suggestProcedureValue(patientId) {
+  const field = document.getElementById('appointment-procedure_value');
+  if (!field || !patientId) return;
+  const patient = allPatients.find(p => String(p.id) === String(patientId));
+  if (patient && patient.health_insurance && INSURANCE_VALUES[patient.health_insurance] !== undefined) {
+    field.value = INSURANCE_VALUES[patient.health_insurance].toFixed(2);
+  } else if (patient && patient.health_insurance) {
+    field.value = INSURANCE_VALUES['Outro'] ? INSURANCE_VALUES['Outro'].toFixed(2) : '0.00';
+  } else {
+    field.value = '';
   }
 }
 
-// ------------------------------------
-// Modal Logic Updates
-// ------------------------------------
+async function loadProfessionalsForSelect(selectedValue = '') {
+  try {
+    const res = await fetch('/api/professionals');
+    const container = document.getElementById('professional-container');
+    if (!res.ok) throw new Error('Falha HTTP');
+    const professionals = await res.json();
+
+    // Create select
+    const select = document.createElement('select');
+    select.id = 'appointment-professional';
+    select.name = 'professional';
+    select.innerHTML = '<option value="">Nenhum específico</option>';
+
+    professionals.forEach(p => {
+      const option = document.createElement('option');
+      option.value = p.name; // Binding by Name to match legacy records
+      option.textContent = p.name;
+      select.appendChild(option);
+    });
+
+    container.innerHTML = '<label>Profissional</label>';
+    container.appendChild(select);
+
+    if (selectedValue) {
+      select.value = selectedValue;
+    }
+  } catch (err) {
+    console.warn('Fallback ativado para Profissionais:', err.message);
+    const container = document.getElementById('professional-container');
+    container.innerHTML = `<label>Profissional</label><input type="text" id="appointment-professional" name="professional" placeholder="Livre..." value="${selectedValue || ''}">`;
+  }
+}
+
 function openNewAppointment() {
   document.getElementById('modal-appointment-title').textContent = 'Novo Agendamento';
   document.getElementById('form-appointment').reset();
   document.getElementById('appointment-id').value = '';
   document.getElementById('appointment-date').value = formatDate(currentDate);
-  document.getElementById('appointment-start_time').value = '08:00';
-
-  // Default Recurrence
-  document.getElementById('appointment-recurrence').value = 'none';
-
-  // Trigger price update
-  updateServicePrice();
-
   loadPatientsForSelect();
+  loadProfessionalsForSelect();
+  document.getElementById('btn-cancel-appointment').style.display = 'none'; // Esconde botão ao criar novo
   document.getElementById('modal-appointment').classList.remove('hidden');
+}
+
+function closeAppointmentModal() {
+  document.getElementById('modal-appointment').classList.add('hidden');
 }
 
 function editAppointment(id) {
@@ -321,37 +396,86 @@ function editAppointment(id) {
   document.getElementById('modal-appointment-title').textContent = 'Editar Agendamento';
   document.getElementById('appointment-id').value = apt.id;
   document.getElementById('appointment-patient_id').value = apt.patient_id;
-  // Title removed from UI, but kept in backend
-  // document.getElementById('appointment-title').value = apt.title || '';
+  document.getElementById('appointment-title').value = apt.title || '';
   document.getElementById('appointment-date').value = apt.appointment_date;
   document.getElementById('appointment-start_time').value = apt.start_time;
   document.getElementById('appointment-end_time').value = apt.end_time || '';
-  document.getElementById('appointment-service_type').value = apt.service_type || 'Pilates';
-  document.getElementById('appointment-price').value = apt.price || ''; // If backend sends price
-  document.getElementById('appointment-professional').value = apt.professional || '';
+  document.getElementById('appointment-service_type').value = apt.service_type || 'Consulta';
   document.getElementById('appointment-status').value = apt.status || 'agendado';
-  // document.getElementById('appointment-description').value = apt.description || '';
+  document.getElementById('appointment-procedure_value').value = apt.procedure_value || '';
+  document.getElementById('appointment-description').value = apt.description || '';
   document.getElementById('appointment-notes').value = apt.notes || '';
-  document.getElementById('appointment-payment_method').value = apt.payment_method || '';
-
-  // Recurrence logic (Simple check for now, backend usually handles creation of multiples)
-  document.getElementById('appointment-recurrence').value = 'none';
 
   loadPatientsForSelect();
-  updateServicePrice(); // Update based on service or keep fetched?
-  // Ideally keep fetched if exists, else update
-  // if(apt.price) document.getElementById('appointment-price').value = apt.price;
+  loadProfessionalsForSelect(apt.professional || '');
 
   setTimeout(() => {
     document.getElementById('appointment-patient_id').value = apt.patient_id;
   }, 100);
 
+  // Mostra botão de cancelar apenas se não estiver cancelado
+  const btnCancel = document.getElementById('btn-cancel-appointment');
+  if (apt.status !== 'cancelado') {
+    btnCancel.style.display = 'inline-block';
+  } else {
+    btnCancel.style.display = 'none';
+  }
+
   document.getElementById('modal-appointment').classList.remove('hidden');
 }
 
-// ------------------------------------
-// Form Submission Update
-// ------------------------------------
+async function cancelAppointment() {
+  try {
+    const id = document.getElementById('appointment-id').value;
+    if (!id) {
+      showError('Nenhum ID de agendamento selecionado na tela.');
+      return;
+    }
+
+    if (!confirm('Deseja realmente cancelar este agendamento?')) {
+      return;
+    }
+
+    // Use original appointment to prevent accidental date or data override
+    const apt = currentAppointments.find(a => String(a.id) === String(id));
+    if (!apt) {
+      showError(`Erro ao localizar o agendamento original (ID ${id}) na memória do painel.`);
+      return;
+    }
+
+    const btnCancel = document.getElementById('btn-cancel-appointment');
+    setButtonLoading(btnCancel, true, 'Cancelando...');
+
+    const payload = {
+      ...apt,
+      status: 'cancelado' // Força apenas o status cancelado, mantém todo o resto (a data do agendado, horario, etc)
+    };
+
+    const res = await fetch(`/api/appointments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errorJson = await res.json().catch(() => ({}));
+      showError(`Erro ao cancelar agendamento: ${errorJson.error || res.status}`);
+      setButtonLoading(btnCancel, false, 'Cancelar Agendamento');
+      return;
+    }
+
+    showSuccess('Agendamento cancelado com sucesso!');
+    closeAppointmentModal();
+    loadAgenda();
+  } catch (err) {
+    console.error('CRITICAL CANCEL ERROR:', err);
+    showError(`Erro crítico no cancelamento: ${err.message}`);
+  } finally {
+    const btnCancel = document.getElementById('btn-cancel-appointment');
+    if (btnCancel) setButtonLoading(btnCancel, false, 'Cancelar Agendamento');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadAgenda();
   loadPatientsForSelect();
@@ -364,25 +488,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formData = new FormData(form);
     const appointmentId = formData.get('id');
-
-    // Auto-generate Title
-    const patientText = document.getElementById('appointment-patient_id').options[document.getElementById('appointment-patient_id').selectedIndex].text;
-    const service = formData.get('service_type');
-    const title = `${service} - ${patientText.split('(')[0].trim()}`;
-
     const data = {
       patient_id: parseInt(formData.get('patient_id'), 10),
-      title: title,
-      // description: formData.get('description'),
+      title: formData.get('title'),
+      description: formData.get('description'),
       appointment_date: formData.get('appointment_date'),
       start_time: formData.get('start_time'),
       end_time: formData.get('end_time'),
-      service_type: service,
-      price: parseFloat(formData.get('price')), // New field
+      service_type: formData.get('service_type'),
       professional: formData.get('professional'),
       status: formData.get('status'),
       notes: formData.get('notes'),
-      recurrence: formData.get('recurrence') // 'none' or 'continuous'
+      procedure_value: parseFloat(formData.get('procedure_value')) || 0
     };
 
     try {
@@ -397,148 +514,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const resData = await res.json();
       if (!res.ok) {
-        showError('Erro ao salvar: ' + (resData.error || res.status));
+        showError('Erro ao salvar agendamento: ' + (resData.error || res.status));
         setButtonLoading(submitBtn, false);
         return;
       }
 
-      showSuccess(appointmentId ? 'Atualizado!' : 'Criado com sucesso!');
+      showSuccess(appointmentId ? 'Agendamento atualizado com sucesso!' : 'Agendamento criado com sucesso!');
       closeAppointmentModal();
       loadAgenda();
       setButtonLoading(submitBtn, false);
     } catch (err) {
       console.error(err);
-      showError('Erro inesperado');
+      showError('Erro inesperado ao salvar agendamento');
       setButtonLoading(submitBtn, false);
     }
   });
 });
-
-// ------------------------------------
-// Confirm Absence Logic
-// ------------------------------------
-async function confirmAbsence() {
-  const id = document.getElementById('confirm-appt-id').value;
-  if (!confirm("Marcar como 'Faltou'? Isso não gerará pontuação.")) return;
-
-  try {
-    const res = await fetch(`/api/appointments/${id}/confirm`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'faltou' }) // Send status override
-    });
-    const data = await res.json();
-    if (data.success) {
-      alert('Status atualizado para Faltou.');
-      closeConfirmModal();
-      loadAgenda();
-    } else {
-      alert('Erro: ' + data.error);
-    }
-  } catch (err) {
-    console.error(err);
-    alert('Erro de conexão');
-  }
-}
-
-// ------------------------------------
-// sendWhatsAppReminder
-// ------------------------------------
-function sendWhatsAppReminder() {
-  const appId = document.getElementById('appointment-id').value;
-  const date = document.getElementById('appointment-date').value;
-  const time = document.getElementById('appointment-start_time').value;
-  const patientSelect = document.getElementById('appointment-patient_id');
-  const patientId = patientSelect.value;
-
-  if (!patientId) {
-    showError("Selecione um paciente para enviar mensagem.");
-    return;
-  }
-
-  // We need the phone number. We can get it from 'currentAppointments' if editing, or fetch patient details.
-  // If it's a new appointment being created, we might not have the phone handy in currentAppointments if specific to patient list?
-  // Actually detailed patient list loader (loadPatientsForSelect) doesn't store phone in DOM.
-  // Simplest approach: Find patient in 'currentAppointments' if editing, OR fetch patient.
-
-  // Strategy: Fetch patient details on demand to be safe.
-  fetch(`/api/patients/${patientId}`)
-    .then(res => res.json())
-    .then(patient => {
-      if (!patient.phone) {
-        alert("Paciente sem telefone cadastrado.");
-        return;
-      }
-
-      const rawPhone = patient.phone.replace(/\D/g, '');
-      if (rawPhone.length < 10) {
-        alert("Telefone inválido.");
-        return;
-      }
-
-      const dateObj = new Date(date + 'T00:00:00'); // Force local date interpretation
-      const dateStr = dateObj.toLocaleDateString('pt-BR');
-
-      const msg = `Olá ${patient.name.split(' ')[0]}, seu agendamento na Clínica Marcha está confirmado para dia ${dateStr} às ${time}. 🏃🏻‍♀️`;
-      const url = `https://wa.me/55${rawPhone}?text=${encodeURIComponent(msg)}`;
-
-      window.open(url, '_blank');
-    })
-    .catch(err => {
-      console.error(err);
-      showError("Erro ao buscar dados do paciente.");
-    });
-}
-
-// Keep existing listener code...
-document.addEventListener('DOMContentLoaded', () => {
-  const confirmForm = document.getElementById('form-confirm-presence');
-  if (confirmForm) {
-    confirmForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = document.getElementById('confirm-appt-id').value;
-      const amount = document.getElementById('confirm-amount').value;
-      const method = document.getElementById('confirm-payment-method').value;
-
-      try {
-        const res = await fetch(`/api/appointments/${id}/confirm`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: amount, payment_method: method, status: 'realizado' })
-        });
-        const data = await res.json();
-        if (data.success) {
-          alert('Presença confirmada e pontos lançados! 🏆');
-          closeConfirmModal();
-          loadAgenda();
-        } else {
-          alert('Erro: ' + (data.msg || data.error));
-        }
-      } catch (e) {
-        console.error(e);
-        alert('Erro de conexão');
-      }
-    });
-  }
-});
-
-// Modal Control Functions
-function closeAppointmentModal() {
-  document.getElementById('modal-appointment').classList.add('hidden');
-}
-
-function openConfirmModal(id) {
-  document.getElementById('confirm-appt-id').value = id;
-  const apt = currentAppointments.find(a => a.id === id);
-  if (apt && apt.price) {
-    document.getElementById('confirm-amount').value = apt.price;
-  }
-  document.getElementById('modal-confirm-presence').classList.remove('hidden');
-}
-
-function closeConfirmModal() {
-  document.getElementById('modal-confirm-presence').classList.add('hidden');
-}
 
 
 

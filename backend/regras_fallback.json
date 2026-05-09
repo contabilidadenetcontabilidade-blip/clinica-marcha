@@ -1,0 +1,62 @@
+[
+    {
+        "name": "Presença",
+        "value": 1,
+        "category": "Meinha"
+    },
+    {
+        "name": "Cor da Casa",
+        "value": 1,
+        "category": "Meinha"
+    },
+    {
+        "name": "Story",
+        "value": 1,
+        "category": "Meinha"
+    },
+    {
+        "name": "Reels/Feed",
+        "value": 2,
+        "category": "Meinha"
+    },
+    {
+        "name": "Desafio Sala",
+        "value": 2,
+        "category": "Meinha"
+    },
+    {
+        "name": "Evolução Técnica",
+        "value": 3,
+        "category": "Meinha"
+    },
+    {
+        "name": "Indicação (Experimental)",
+        "value": 3,
+        "category": "Meinha"
+    },
+    {
+        "name": "Conversão (Matrícula)",
+        "value": 2,
+        "category": "Meinha"
+    },
+    {
+        "name": "Falta s/ Justificativa",
+        "value": -2,
+        "category": "Punição"
+    },
+    {
+        "name": "Pomo (Meta)",
+        "value": 3,
+        "category": "Pomo"
+    },
+    {
+        "name": "Pomo (Recorde)",
+        "value": 5,
+        "category": "Pomo"
+    },
+    {
+        "name": "Bônus Capitão",
+        "value": 5,
+        "category": "Capitão"
+    }
+]

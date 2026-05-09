@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <title>Ranking Marcha Cup 🏆</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/cards-style.css">
+    <script src="auth_guard.js"></script>
+
     <style>
         body {
             background: #121212;
@@ -57,6 +60,16 @@
             width: 50px;
             height: 50px;
             object-fit: contain;
+        }
+
+        .active-card-icon {
+            width: 40px;
+            height: 55px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-left: 10px;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+            border: 2px solid #FFD700;
         }
 
         .house-name {
@@ -133,6 +146,7 @@
             style="margin-left:10px; border-color: #d32f2f; color: #ef5350;">Sair</a>
     </div>
 
+    <script src="js/cards-viewer.js"></script>
     <script>
         function logout() {
             localStorage.removeItem('user');
@@ -144,8 +158,18 @@
                 const res = await fetch('/api/ranking');
                 const houses = await res.json();
 
+                // Buscar cartas ativas
+                const cardsRes = await fetch('/api/active-cards');
+                const activeCards = cardsRes.ok ? await cardsRes.json() : [];
+
                 const container = document.getElementById('ranking-list');
                 container.innerHTML = '';
+
+                if (!houses || houses.length === 0) {
+                    container.innerHTML = '<p>Nenhuma casa encontrada no ranking. Verifique o cadastro.</p>';
+                    return;
+                }
+
 
                 houses.forEach((house, index) => {
                     const div = document.createElement('div');
@@ -154,11 +178,18 @@
 
                     const crestUrl = house.crest || '../assets/shield_placeholder.png';
 
+                    // Buscar carta ativa desta casa (épica ou lendária)
+                    const houseCard = activeCards.find(ac => ac.house_id === house.id);
+                    const cardIcon = houseCard
+                        ? `<img src="${houseCard.image_path}" class="active-card-icon" title="${houseCard.name} - ${houseCard.rarity}" style="cursor: pointer;" onclick='openCardViewer(${JSON.stringify(houseCard).replace(/'/g, "&#39;")})'>`
+                        : '';
+
                     div.innerHTML = `
                     <div class="house-info">
                         <span class="rank-number">#${index + 1}</span>
                         <img src="${crestUrl}" class="crest" onerror="this.src='../assets/shield_placeholder.png'">
                         <span class="house-name" style="color:${house.color}">${house.name}</span>
+                        ${cardIcon}
                     </div>
                     <div class="points">${house.total_points} pts</div>
                   `;
@@ -167,6 +198,12 @@
 
             } catch (e) {
                 console.error(e);
+            }
+        }
+
+        function openCardViewer(card) {
+            if (window.cardsViewer && card) {
+                window.cardsViewer.open([card], 0);
             }
         }
 

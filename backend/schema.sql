@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS athletes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   house_id INTEGER NOT NULL,
+  is_captain BOOLEAN DEFAULT 0,
   active INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (house_id) REFERENCES houses(id)
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS scoring_rules (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   value INTEGER NOT NULL,
+  category TEXT DEFAULT 'Positiva',
   active INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -34,6 +36,29 @@ CREATE TABLE IF NOT EXISTS scores (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (athlete_id) REFERENCES athletes(id),
   FOREIGN KEY (rule_id) REFERENCES scoring_rules(id)
+);
+
+CREATE TABLE IF NOT EXISTS house_points_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  house_id INTEGER,
+  student_id INTEGER,
+  rule_id INTEGER,
+  points_awarded INTEGER NOT NULL,
+  description TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (house_id) REFERENCES houses(id),
+  FOREIGN KEY (student_id) REFERENCES patients(id),
+  FOREIGN KEY (rule_id) REFERENCES scoring_rules(id)
+);
+
+CREATE TABLE IF NOT EXISTS active_effects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  house_id INTEGER NOT NULL,
+  effect_type TEXT NOT NULL,
+  multiplier DECIMAL(10, 2) DEFAULT 1.0,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (house_id) REFERENCES houses(id)
 );
 
 -- =============== GESTÃO DA CLÍNICA ===============
@@ -93,6 +118,17 @@ CREATE TABLE IF NOT EXISTS financial_transactions (
   updated_at DATETIME,
   FOREIGN KEY (patient_id) REFERENCES patients(id),
   FOREIGN KEY (appointment_id) REFERENCES appointments(id)
+);
+
+CREATE TABLE IF NOT EXISTS professionals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  specialty TEXT,
+  registration_number TEXT,
+  color TEXT DEFAULT '#2196F3',
+  active INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME
 );
 
 -- =============== ÍNDICES PARA PERFORMANCE ===============

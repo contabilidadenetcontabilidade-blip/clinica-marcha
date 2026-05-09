@@ -1,0 +1,92 @@
+[
+  {
+    "id": 23,
+    "name": "Marombinha",
+    "rarity": "Comum",
+    "description": "Escolha um exercício fácil pra valer 1 meinha"
+  },
+  {
+    "id": 25,
+    "name": "Senhorinha",
+    "rarity": "Comum",
+    "description": "Escolha um exercício difícil pra valer 2 meinhas"
+  },
+  {
+    "id": 26,
+    "name": "Spoiler",
+    "rarity": "Comum",
+    "description": "Escolha uma casa adversária e descubra a parcial de meinhas dela neste mês"
+  },
+  {
+    "id": 20,
+    "name": "Vida",
+    "rarity": "Comum",
+    "description": "Anula uma falta"
+  },
+  {
+    "id": 27,
+    "name": "Aliança",
+    "rarity": "Lendária",
+    "description": "Um capitão adversário disputa um pomo por você em troca de uma carta lendária caso vença"
+  },
+  {
+    "id": 28,
+    "name": "Golpe de Estado",
+    "rarity": "Lendária",
+    "description": "A casa em último rouba as conquistas da casa em primeiro por uma semana"
+  },
+  {
+    "id": 29,
+    "name": "Invisibilidade",
+    "rarity": "Lendária",
+    "description": "Veta a ação de qualquer carta"
+  },
+  {
+    "id": 17,
+    "name": "Tandera",
+    "rarity": "Lendária",
+    "description": "Revela as cartas de uma casa adversária"
+  },
+  {
+    "id": 30,
+    "name": "Influencer",
+    "rarity": "Rara",
+    "description": "Mídias sociais valem o dobro de meinhas por uma semana"
+  },
+  {
+    "id": 22,
+    "name": "Ladino",
+    "rarity": "Rara",
+    "description": "Rouba 3 meinhas de uma casa adversária"
+  },
+  {
+    "id": 24,
+    "name": "Reverso",
+    "rarity": "Rara",
+    "description": "O feitiço vira contra o feiticeiro"
+  },
+  {
+    "id": 21,
+    "name": "Zica",
+    "rarity": "Rara",
+    "description": "As faltas de uma casa rival valerão o dobro por uma semana"
+  },
+  {
+    "id": 16,
+    "name": "Coringa",
+    "rarity": "Épica",
+    "description": "Por uma semana as conquistas de um capitão adversário vão para você"
+  },
+  {
+    "id": 18,
+    "name": "Trapaça",
+    "rarity": "Épica",
+    "description": "Aumenta em 15% a meta mensal de meinhas de um adversário"
+  },
+  {
+    "id": 19,
+    "name": "VAR",
+    "rarity": "Épica",
+    "description": "Obriga um adversário a repetir um pomo do mês e rouba o pomo se ele fracassar"
+  }
+]

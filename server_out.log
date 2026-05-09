@@ -1,0 +1,41 @@
+Gestão Marcha rodando em http://localhost:3000 e acessível via IP de Rede
+Conectado ao banco de dados SQLite oficial.
+Banco pronto e tabelas criadas!
+GET /api/ranking
+GET /api/houses (lista simples)
+GET /api/ranking
+📥 Recebido chat: { house_id: 4, patient_id: 1, message: 'Teste!' }
+❌ Atleta não pertence à casa: { patient_id: 1, house_id: 4 }
+GET /api/houses (lista simples)
+GET /api/ranking
+GET /api/ranking
+GET /api/houses (lista simples)
+📥 Recebido chat: { house_id: 1, patient_id: 10103, message: 'Teste!' }
+✅ Mensagem salva: { house_id: 1, patient_id: 10103, id: 1 }
+📥 Recebido chat: { house_id: 1, patient_id: 10103, message: 'Teste!' }
+✅ Mensagem salva: { house_id: 1, patient_id: 10103, id: 2 }
+📥 Recebido chat: { house_id: 1, patient_id: 10103, message: 'Teste!' }
+✅ Mensagem salva: { house_id: 1, patient_id: 10103, id: 3 }
+GET /api/houses (lista simples)
+GET /api/ranking
+GET /api/ranking
+GET /api/houses (lista simples)
+📥 Recebido chat: { house_id: 4, patient_id: 10103, message: 'Teste!' }
+❌ Atleta não pertence à casa: { patient_id: 10103, house_id: 4 }
+GET /api/houses (lista simples)
+GET /api/ranking
+GET /api/houses (lista simples)
+GET /api/ranking
+GET /api/houses (lista simples)
+GET /api/ranking
+📥 Recebido chat: { house_id: 1, patient_id: 10103, message: 'Teste!' }
+✅ Mensagem salva: { house_id: 1, patient_id: 10103, id: 4 }
+GET /api/houses (lista simples)
+GET /api/ranking
+GET /api/houses (lista simples)
+GET /api/ranking
+GET /api/ranking
+GET /api/houses (lista simples)
+GET /api/ranking
+GET /api/houses (lista simples)
+GET /api/ranking

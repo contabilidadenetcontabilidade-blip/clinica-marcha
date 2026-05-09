@@ -2,6 +2,10 @@ let HOUSE_ID = null;
 let currentAthletes = [];
 let currentRules = [];
 
+// Lê o usuário logado para controle de permissões
+const _currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+const _isAdmin = _currentUser.id === 9999;
+
 function getHouseIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
@@ -33,6 +37,8 @@ async function loadDashboard() {
     // aplica cor da casa como variável global
     if (house.color) {
       document.documentElement.style.setProperty('--house-color', house.color);
+      const isYellow = house.color.toUpperCase() === '#FFFF00' || house.name.toLowerCase() === 'chair';
+      document.documentElement.style.setProperty('--house-text-color', isYellow ? '#000000' : '#ffffff');
     }
 
     const bestCatEl = document.getElementById('best-category');
@@ -59,17 +65,49 @@ async function loadDashboard() {
 
         const nameBtn = document.createElement('button');
         nameBtn.className = 'athlete-name-btn';
-        nameBtn.textContent = `${index + 1}. ${ath.name}`;
+        nameBtn.innerHTML = `${index + 1}. ${ath.name} ${ath.is_captain == 1 ? '⭐(Capitão)' : ''}`;
         nameBtn.onclick = (e) => {
           e.stopPropagation();
           window.location.href = `atleta_detalhe.html?id=${ath.id}`;
+        };
+
+        const captainBtn = document.createElement('button');
+        captainBtn.className = ath.is_captain == 1 ? 'btn-secondary' : 'btn-primary';
+        captainBtn.style.padding = '2px 8px';
+        captainBtn.style.fontSize = '0.8rem';
+        captainBtn.style.marginLeft = '10px';
+        captainBtn.textContent = ath.is_captain == 1 ? 'Remover Capitão' : 'Fazer Capitão';
+        captainBtn.onclick = async (e) => {
+          e.stopPropagation();
+          try {
+            const res = await fetch(`/api/athletes/${ath.id}/captain`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ is_captain: ath.is_captain == 1 ? false : true })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            alert(data.message);
+            loadDashboard();
+          } catch (err) {
+            alert(err.message);
+          }
         };
 
         const pointsSpan = document.createElement('span');
         pointsSpan.className = 'athlete-points';
         pointsSpan.textContent = `${ath.total_points} pts`;
 
-        li.appendChild(nameBtn);
+        const nameContainer = document.createElement('div');
+        nameContainer.style.display = 'flex';
+        nameContainer.style.alignItems = 'center';
+        nameContainer.appendChild(nameBtn);
+        // Botão de capitão: apenas admin (id=9999) vê
+        if (_isAdmin) {
+          nameContainer.appendChild(captainBtn);
+        }
+
+        li.appendChild(nameContainer);
         li.appendChild(pointsSpan);
         rankingList.appendChild(li);
       });
@@ -143,6 +181,12 @@ function openAddScore() {
     return;
   }
   document.getElementById('modal-score').classList.remove('hidden');
+
+  // Trigger change event to load thumbnail for initially selected rule
+  const selRule = document.getElementById('select-rule');
+  if (selRule && selRule.options.length > 0) {
+    selRule.dispatchEvent(new Event('change'));
+  }
 }
 
 function closeAddScore() {
@@ -225,104 +269,71 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  const ruleSelect = document.getElementById('select-rule');
+  if (ruleSelect) {
+    // Add container for thumbnail and loading state inside the modal
+    const previewContainer = document.createElement('div');
+    previewContainer.id = 'rule-preview-container';
+    previewContainer.style.marginTop = '15px';
+    previewContainer.style.display = 'flex';
+    previewContainer.style.alignItems = 'center';
+    previewContainer.style.gap = '15px';
+    previewContainer.style.minHeight = '60px'; // Prevent jumping when loading
+
+    const loadingText = document.createElement('span');
+    loadingText.id = 'rule-loading-text';
+    loadingText.textContent = 'Carregando...';
+    loadingText.style.display = 'none';
+    loadingText.style.color = 'var(--gold, #FFD700)';
+    loadingText.style.fontStyle = 'italic';
+
+    const thumbnailImg = document.createElement('img');
+    thumbnailImg.id = 'rule-thumbnail';
+    thumbnailImg.style.display = 'none';
+    thumbnailImg.style.width = '45px';
+    thumbnailImg.style.height = '60px';
+    thumbnailImg.style.objectFit = 'cover';
+    thumbnailImg.style.borderRadius = '6px';
+    thumbnailImg.style.boxShadow = '0 2px 8px rgba(0,0,0,0.5)';
+
+    previewContainer.appendChild(loadingText);
+    previewContainer.appendChild(thumbnailImg);
+
+    // Insert right after the rule select
+    ruleSelect.parentNode.insertBefore(previewContainer, ruleSelect.nextSibling);
+
+    ruleSelect.addEventListener('change', (e) => {
+      const selectedRuleId = parseInt(e.target.value, 10);
+      const rule = currentRules.find(r => r.id === selectedRuleId);
+
+      if (rule && rule.image_path) {
+        loadingText.style.display = 'block';
+        thumbnailImg.style.display = 'none';
+
+        // Simulate loading or load the image
+        const img = new Image();
+        img.onload = () => {
+          thumbnailImg.src = img.src;
+          loadingText.style.display = 'none';
+          thumbnailImg.style.display = 'block';
+        };
+        img.onerror = () => {
+          loadingText.textContent = 'Arte não encontrada';
+          setTimeout(() => { loadingText.style.display = 'none'; }, 2000);
+        };
+        // Small delay to make the "Carregando..." visible if the image is cached
+        setTimeout(() => {
+          img.src = rule.image_path;
+        }, 300);
+
+      } else {
+        loadingText.style.display = 'none';
+        thumbnailImg.style.display = 'none';
+      }
+    });
+  }
+
   // carrega dados iniciais
   loadDashboard();
   loadRules();
-  loadGallery();
-
-  // Show controls if admin
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (user && user.role === 'admin') {
-    document.getElementById('gallery-controls').style.display = 'block';
-  }
 });
-
-async function loadGallery() {
-  if (!HOUSE_ID) return;
-  const grid = document.getElementById('gallery-grid');
-  grid.innerHTML = '<p style="color:#666; width:100%;">Carregando fotos...</p>';
-
-  try {
-    const res = await fetch(`/api/houses/${HOUSE_ID}/photos`);
-    if (!res.ok) throw new Error("Erro API");
-    const photos = await res.json();
-
-    grid.innerHTML = '';
-    if (photos.length === 0) {
-      grid.innerHTML = '<p style="color:#aaa; font-style:italic;">Nenhuma foto na galeria.</p>';
-      return;
-    }
-
-    const user = JSON.parse(localStorage.getItem('user')); // Get user inside to check permissions
-    const isAdmin = user && user.role === 'admin';
-
-    photos.forEach(p => {
-      const div = document.createElement('div');
-      div.className = 'gallery-item';
-
-      let deleteBtn = '';
-      if (isAdmin) {
-        deleteBtn = `<button class="delete-photo-btn" onclick="deleteGalleryPhoto(${p.id})">×</button>`;
-      }
-
-      div.innerHTML = `
-                <img src="${p.photo_url}" onclick="window.open('${p.photo_url}', '_blank')">
-                ${deleteBtn}
-            `;
-      grid.appendChild(div);
-    });
-  } catch (err) {
-    console.error(err);
-    grid.innerHTML = '<p style="color:red;">Erro ao carregar fotos.</p>';
-  }
-}
-
-async function uploadGalleryPhoto(input) {
-  if (input.files.length === 0) return;
-  const file = input.files[0];
-
-  const formData = new FormData();
-  formData.append('photo', file);
-
-  // Show uploading...
-  const controls = document.getElementById('gallery-controls');
-  const btn = controls.querySelector('button');
-  const originalText = btn.textContent;
-  btn.textContent = 'Enviando...';
-  btn.disabled = true;
-
-  try {
-    const res = await fetch(`/api/houses/${HOUSE_ID}/photos`, {
-      method: 'POST',
-      body: formData
-    });
-    if (res.ok) {
-      showSuccess("Foto adicionada!");
-      loadGallery();
-    } else {
-      showError("Erro ao enviar imagem.");
-    }
-  } catch (err) {
-    console.error(err);
-    showError("Erro de conexão.");
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-    input.value = ''; // Reset input to allow same file selection again
-  }
-}
-
-async function deleteGalleryPhoto(id) {
-  if (!confirm("Apagar esta foto?")) return;
-  try {
-    const res = await fetch(`/api/houses/photos/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      showSuccess("Foto removida.");
-      loadGallery();
-    } else {
-      showError("Erro ao apagar.");
-    }
-  } catch (e) {
-    showError("Erro de conexão.");
-  }
-}

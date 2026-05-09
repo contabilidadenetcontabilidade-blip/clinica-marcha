@@ -17,9 +17,9 @@ COPY assets ./assets
 # Expose port
 EXPOSE 8080
 
-# Environment variables
 ENV PORT=8080
 ENV NODE_ENV=production
+ENV CACHE_BUST=v9-fix-db-attempt3
 
 # Start command
 WORKDIR /usr/src/app/backend

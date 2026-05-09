@@ -1,9 +1,21 @@
 let currentPatients = [];
 let editingPatientId = null;
+let currentTab = 'student'; // 'student' or 'team'
+
+function switchTab(tab) {
+  currentTab = tab;
+
+  // Update UI
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(tab === 'student' ? 'tab-students' : 'tab-team').classList.add('active');
+
+  // Load data
+  loadPatients();
+}
 
 async function loadPatients() {
   try {
-    showLoading('patients-list', 'Carregando pacientes...');
+    showLoading('patients-list', 'Carregando...');
 
     const search = document.getElementById('search-input')?.value || '';
     const activeOnly = document.getElementById('filter-active')?.checked;
@@ -12,46 +24,24 @@ async function loadPatients() {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (activeOnly) params.append('active', 'true');
+    params.append('type', currentTab); // Add type param
+
     if (params.toString()) url += '?' + params.toString();
 
     const res = await fetch(url);
     if (!res.ok) {
+
       const errorData = await res.json().catch(() => ({}));
       showError('Erro ao carregar pacientes: ' + (errorData.error || res.status));
       return;
     }
 
-    currentPatients = (await res.json()).filter(p => !p.role || p.role !== 'fisio');
+    currentPatients = await res.json();
     renderPatients();
   } catch (err) {
     console.error(err);
     showError('Erro inesperado ao carregar pacientes');
   }
-}
-
-// Cache de casas
-let housesList = [];
-async function loadHouses() {
-  if (housesList.length > 0) return;
-  try {
-    const res = await fetch('/api/houses');
-    if (res.ok) {
-      housesList = await res.json();
-    }
-  } catch (e) { console.error("Erro ao carregar casas", e); }
-}
-
-function populateHouseSelect() {
-  const sel = document.getElementById('patient-house');
-  const currentVal = sel.value;
-  sel.innerHTML = '<option value="">-- Sem Casa --</option>';
-  housesList.forEach(h => {
-    const opt = document.createElement('option');
-    opt.value = h.id;
-    opt.textContent = h.name;
-    sel.appendChild(opt);
-  });
-  sel.value = currentVal;
 }
 
 function renderPatients() {
@@ -72,16 +62,7 @@ function renderPatients() {
 
     const name = document.createElement('div');
     name.className = 'patient-name';
-    // Showing Type badge
-    let typeBadge = '';
-    if (patient.type) {
-      let color = '#ccc';
-      if (patient.type === 'Aluno') color = 'var(--accent)';
-      if (patient.type === 'Paciente') color = 'var(--success)';
-      if (patient.type === 'Cliente') color = 'var(--navy)';
-      typeBadge = `<span style="background:${color}; color:white; font-size:0.7em; padding:2px 6px; border-radius:8px; margin-right:6px; vertical-align:middle;">${patient.type}</span>`;
-    }
-    name.innerHTML = `${typeBadge} ${patient.name}`;
+    name.textContent = patient.name;
 
     const details = document.createElement('div');
     details.className = 'patient-details';
@@ -132,24 +113,12 @@ function renderPatients() {
   });
 }
 
-function previewPhoto(input) {
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      document.getElementById('patient-photo-preview').src = e.target.result;
-    }
-    reader.readAsDataURL(input.files[0]);
-  }
-}
-
 function openNewPatient() {
   editingPatientId = null;
-  document.getElementById('modal-patient-title').textContent = 'Novo Cadastro - Clínica Marcha';
+  document.getElementById('modal-patient-title').textContent = 'Novo Paciente';
   document.getElementById('form-patient').reset();
   document.getElementById('patient-id').value = '';
-  document.getElementById('patient-username').value = '';
-  populateHouseSelect();
-  document.getElementById('patient-photo-preview').src = '../assets/default-user.png';
+  loadHousesSelect(); // Chamando a nova função para carregar as casas
   document.getElementById('modal-patient').classList.remove('hidden');
 }
 
@@ -166,24 +135,12 @@ function editPatient(id) {
     return;
   }
 
-  document.getElementById('modal-patient-title').textContent = 'Editar - Clínica Marcha';
+  document.getElementById('modal-patient-title').textContent = 'Editar Paciente';
   document.getElementById('patient-id').value = patient.id;
   document.getElementById('patient-name').value = patient.name || '';
-  // Check if type element exists (it might be hidden without ID)
-  const typeInput = document.getElementById('patient-type') || document.querySelector('input[name="type"]');
-  if (typeInput) typeInput.value = patient.type || 'Paciente';
-
   document.getElementById('patient-cpf').value = patient.cpf || '';
-  document.getElementById('patient-username').value = patient.username || '';
-
-  // Casas
-  loadHouses().then(() => {
-    populateHouseSelect();
-    document.getElementById('patient-house').value = patient.house_id || '';
-  });
   document.getElementById('patient-phone').value = patient.phone || '';
   document.getElementById('patient-email').value = patient.email || '';
-  document.getElementById('patient-password').value = patient.password || '';
   document.getElementById('patient-birth_date').value = patient.birth_date || '';
   document.getElementById('patient-address').value = patient.address || '';
   document.getElementById('patient-city').value = patient.city || '';
@@ -194,12 +151,6 @@ function editPatient(id) {
   document.getElementById('patient-health_insurance').value = patient.health_insurance || '';
   document.getElementById('patient-health_insurance_number').value = patient.health_insurance_number || '';
   document.getElementById('patient-notes').value = patient.notes || '';
-
-  if (patient.photo) {
-    document.getElementById('patient-photo-preview').src = patient.photo;
-  } else {
-    document.getElementById('patient-photo-preview').src = '../assets/default-user.png';
-  }
 
   document.getElementById('modal-patient').classList.remove('hidden');
 }
@@ -223,8 +174,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formData = new FormData(form);
     const patientId = formData.get('id');
-
-    // No need to convert to JSON, fetch accepts FormData directly and sets multipart/form-data
+    const data = {
+      name: formData.get('name'),
+      cpf: formData.get('cpf'),
+      phone: formData.get('phone'),
+      email: formData.get('email'),
+      birth_date: formData.get('birth_date'),
+      address: formData.get('address'),
+      city: formData.get('city'),
+      state: formData.get('state'),
+      zip_code: formData.get('zip_code'),
+      emergency_contact: formData.get('emergency_contact'),
+      emergency_phone: formData.get('emergency_phone'),
+      health_insurance: formData.get('health_insurance'),
+      health_insurance_number: formData.get('health_insurance_number'),
+      notes: formData.get('notes'),
+      house_id: formData.get('house_id')
+    };
 
     try {
       const url = patientId ? `/api/patients/${patientId}` : '/api/patients';
@@ -232,7 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const res = await fetch(url, {
         method,
-        body: formData // Send FormData directly
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       });
 
       const resData = await res.json();
@@ -240,17 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showError('Erro ao salvar paciente: ' + (resData.error || res.status));
         setButtonLoading(submitBtn, false);
         return;
-      }
-
-      // Update House
-      const houseId = formData.get('house_id');
-      const savedId = patientId || resData.id;
-      if (houseId !== null && savedId) {
-        await fetch(`/api/patients/${savedId}/house`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ house_id: houseId })
-        });
       }
 
       showSuccess(patientId ? 'Paciente atualizado com sucesso!' : 'Paciente cadastrado com sucesso!');
@@ -265,21 +221,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// Init Houses
-loadHouses();
-
-async function generateInviteLink() {
+async function loadHousesSelect() {
   try {
-    const res = await fetch('/api/invites', { method: 'POST' });
-    if (!res.ok) throw new Error("Erro API");
-    const data = await res.json();
-    const link = `${window.location.origin}/cadastro-cliente.html?token=${data.token}`;
-
-    await navigator.clipboard.writeText(link);
-    showSuccess("Link copiado para a área de transferência! (Válido por 24h)");
-  } catch (e) {
-    console.error(e);
-    showError("Erro ao gerar link");
+    const res = await fetch('/api/houses');
+    const houses = await res.json();
+    const select = document.getElementById('patient-house_id');
+    if (!select) return;
+    select.innerHTML = '<option value="">Selecione a Casa...</option>';
+    houses.forEach(h => {
+      const opt = document.createElement('option');
+      opt.value = h.id;
+      opt.textContent = h.name;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar casas para o select:", err);
   }
 }
 

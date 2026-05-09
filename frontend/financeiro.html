@@ -4,30 +4,41 @@
 <head>
   <meta charset="UTF-8">
   <title>Financeiro - Marcha</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="financeiro.css">
-  <script>
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user || user.role !== 'admin') {
-      window.location.href = 'login.html';
-    }
-  </script>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/financeiro.css">
+  <script src="/auth_guard.js"></script>
 </head>
 
 <body>
-  <header class="topbar">
-    <a href="index.html" class="brand">
-      <img src="../assets/logo_marcha.png" alt="Logo" class="logo">
-      <span class="title">Clínica Marcha</span>
-    </a>
-    <nav class="nav-links">
-      <a href="index.html" class="nav-item">🏠 <span>Início</span></a>
-      <a href="agenda.html" class="nav-item">📅 <span>Agenda</span></a>
-      <a href="pacientes.html" class="nav-item">👥 <span>Clientes & Alunos</span></a>
-      <a href="financeiro.html" class="nav-item active">💰 <span>Financeiro</span></a>
-      <a href="#" onclick="logout()" class="nav-item" style="color: #f44336;">🚪 <span>Sair</span></a>
+  <header class="global-navbar"
+    style="background: #000033; color: white; display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+    <div class="nav-brand" style="display: flex; align-items: center; gap: 15px; cursor: pointer;"
+      onclick="window.location.href='index.html'">
+      <img src="../assets/logo_marcha.png" alt="Logo"
+        style="height: 40px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));">
+      <span style="font-size: 1.2rem; font-weight: bold; letter-spacing: 1px;">Marcha</span>
+    </div>
+    <nav class="nav-links" style="display: flex; gap: 20px; align-items: center;">
+      <a href="pacientes.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Pacientes</a>
+      <a href="agenda.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Agenda</a>
+      <a href="profissionais.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Profissionais</a>
+      <a href="financeiro.html"
+        style="color: white; text-decoration: none; font-weight: 600; font-size: 1rem; border-bottom: 2px solid #FFD700;">Financeiro</a>
+      <a href="cup.html"
+        style="color: #ccc; text-decoration: none; font-weight: 500; font-size: 1rem; transition: 0.2s;">Marcha Cup</a>
+      <button onclick="doLogoff()"
+        style="background: #e53935; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 10px; transition: 0.2s;">Sair</button>
     </nav>
   </header>
+  <script>
+    function doLogoff() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+  </script>
 
   <main>
     <div class="page-header">
@@ -39,25 +50,31 @@
     </div>
 
     <section class="card summary-section">
-      <h2>Resumo Financeiro (Mês Atual)</h2>
-      <div class="summary-grid" id="summary-grid" style="grid-template-columns: repeat(3, 1fr) !important;">
-        <!-- Card 1: Total Recebido -->
-        <div class="summary-card" style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);">
-          <div class="summary-label" style="color: #2E7D32;">Total Recebido</div>
-          <div class="summary-value positive" id="total-recebido" style="color: #1B5E20; font-size: 1.8rem;">R$ 0,00
-          </div>
+      <h2>Resumo Financeiro</h2>
+      <div class="summary-grid" id="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">Total Receitas</div>
+          <div class="summary-value positive" id="total-receitas">R$ 0,00</div>
         </div>
-
-        <!-- Card 2: Total Pendente -->
-        <div class="summary-card" style="background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);">
-          <div class="summary-label" style="color: #EF6C00;">Total Pendente</div>
-          <div class="summary-value" id="total-pendente" style="color: #E65100; font-size: 1.8rem;">R$ 0,00</div>
+        <div class="summary-card">
+          <div class="summary-label">Total Despesas</div>
+          <div class="summary-value negative" id="total-despesas">R$ 0,00</div>
         </div>
-
-        <!-- Card 3: Saldo Esperado -->
-        <div class="summary-card highlight" style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);">
-          <div class="summary-label" style="color: #1565C0;">Saldo Total Esperado</div>
-          <div class="summary-value" id="saldo-esperado" style="color: #0D47A1; font-size: 1.8rem;">R$ 0,00</div>
+        <div class="summary-card highlight">
+          <div class="summary-label">Saldo</div>
+          <div class="summary-value" id="saldo">R$ 0,00</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Recebido</div>
+          <div class="summary-value positive" id="recebido">R$ 0,00</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Pago</div>
+          <div class="summary-value negative" id="pago">R$ 0,00</div>
+        </div>
+        <div class="summary-card highlight">
+          <div class="summary-label">Saldo Real</div>
+          <div class="summary-value" id="saldo-real">R$ 0,00</div>
         </div>
       </div>
     </section>
@@ -72,7 +89,6 @@
         <input type="date" id="filter-start-date" onchange="loadTransactions()">
         <input type="date" id="filter-end-date" onchange="loadTransactions()">
         <button class="btn-secondary" onclick="loadTransactions()">Filtrar</button>
-        <button class="btn-secondary" onclick="exportFinancialReportPDF()">📄 Gerar Relatório PDF</button>
       </div>
     </section>
 
@@ -88,10 +104,7 @@
   <!-- Modal Nova/Editar Transação -->
   <div id="modal-transaction" class="modal hidden">
     <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="modal-transaction-title" class="modal-title">Nova Transação - Clínica Marcha</h3>
-        <button class="btn-close-modal" onclick="closeTransactionModal()">&times;</button>
-      </div>
+      <h3 id="modal-transaction-title">Nova Transação</h3>
       <form id="form-transaction">
         <input type="hidden" id="transaction-id" name="id">
         <input type="hidden" id="transaction-type" name="type">
@@ -149,7 +162,6 @@
             <option value="cartao_credito">Cartão de Crédito</option>
             <option value="cartao_debito">Cartão de Débito</option>
             <option value="transferencia">Transferência</option>
-            <option value="gympass">Gympass</option>
           </select>
         </div>
 
@@ -165,6 +177,14 @@
           <textarea id="transaction-notes" name="notes" rows="2"></textarea>
         </div>
 
+        <div class="form-group checkbox-group" id="bonus-pack-group"
+          style="display:none; align-items:center; gap:8px; margin-bottom:15px; padding:10px; background:rgba(255, 215, 0, 0.1); border-radius:4px; border:1px solid #FFD700;">
+          <input type="checkbox" id="transaction-bonus_pack" name="bonus_pack" value="1" style="width:auto; margin:0;">
+          <label for="transaction-bonus_pack" style="margin:0; color:#FFD700; cursor:pointer;"
+            title="Marcando esta opção, o aluno (se selecionado) receberá Cartas Épicas/Lendárias.">Liberação de Bônus
+            Pack Semestral (Cartas Épicas/Lendárias)</label>
+        </div>
+
         <div class="form-actions">
           <button type="submit" class="btn-primary">Salvar</button>
           <button type="button" class="btn-secondary" onclick="closeTransactionModal()">Cancelar</button>
@@ -173,13 +193,8 @@
     </div>
   </div>
 
-  <!-- Adicionar jsPDF e autoTable via CDN -->
-  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <script src="utils.js?v=1.2"></script>
-  <script src="financeiro.js?v=1.5"></script>
+  <script src="/utils.js"></script>
+  <script src="/financeiro.js"></script>
 </body>
 
 </html>

@@ -86,11 +86,6 @@ async function loadHouses() {
       img.className = "house-crest";
       if (h.crest) {
         img.src = h.crest;
-        img.onerror = function () { // Fallback if image fails
-          this.onerror = null;
-          this.src = '../assets/logo_marcha.png'; // Or empty
-          this.style.background = h.color || '#192C46';
-        };
       } else {
         img.style.background = h.color || '#192C46';
       }
@@ -138,6 +133,7 @@ async function loadHouses() {
 // Form de criar casa
 document.addEventListener("DOMContentLoaded", () => {
   loadHouses();
+  loadProvasPendentes();
 
   const form = document.getElementById("form-casa");
   if (!form) return;
@@ -219,4 +215,249 @@ document.addEventListener("DOMContentLoaded", () => {
       setButtonLoading(submitBtn, false);
     }
   });
+});
+
+// --- MARCH 2026 EXPANSION ---
+
+async function loadHouseInventory(houseId) {
+  if (!houseId) return;
+  const grid = document.getElementById('house-cards-grid');
+  grid.innerHTML = '<p style="color: #ccc;">Carregando...</p>';
+
+  try {
+    const res = await fetch(`/api/house/${houseId}/cards`);
+    const cards = await res.json();
+
+    grid.innerHTML = '';
+    if (cards.length === 0) {
+      grid.innerHTML = '<p style="color: #888; font-style: italic;">Nenhuma carta disponível nesta casa.</p>';
+      return;
+    }
+
+    cards.forEach(card => {
+      const div = document.createElement('div');
+      div.style.width = '100px';
+      div.style.textAlign = 'center';
+      div.style.background = 'rgba(0,0,0,0.3)';
+      div.style.padding = '5px';
+      div.style.borderRadius = '8px';
+
+      div.innerHTML = `
+                <img src="${card.image_path}" style="width: 100%; border-radius: 6px; border: 1px solid #444; aspect-ratio: 2/3; object-fit: cover;">
+                <div style="font-size: 0.7rem; color: #ccc; margin-top: 4px;">Portador:</div>
+                <div style="font-size: 0.8rem; color: #fff; font-weight: bold;">${card.student_name.split(' ')[0]}</div>
+            `;
+      grid.appendChild(div);
+    });
+  } catch (e) {
+    console.error(e);
+    grid.innerHTML = '<p style="color: red;">Erro ao carregar.</p>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const houseSelect = document.getElementById('house-select');
+  if (houseSelect) {
+    try {
+      const res = await fetch('/api/ranking'); // Reuse ranking API to get houses
+      const houses = await res.json();
+      houses.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h.id;
+        opt.textContent = h.name;
+        houseSelect.appendChild(opt);
+      });
+
+      houseSelect.addEventListener('change', (e) => loadHouseInventory(e.target.value));
+    } catch (e) { console.error("Error loading houses for select:", e); }
+  }
+});
+
+// --- SCORE REGISTRATION ---
+const modalScore = document.getElementById('modal-score');
+
+function openAddScore() {
+  modalScore.classList.remove('hidden');
+  loadScoreOptions();
+}
+
+// Make it globally available
+window.openAddScore = openAddScore;
+
+const btnAddScore = document.getElementById('add-score-btn');
+if (btnAddScore) {
+  btnAddScore.addEventListener('click', openAddScore);
+}
+
+async function loadScoreOptions() {
+  const studentSelect = document.getElementById('score-student-select');
+  const ruleSelect = document.getElementById('score-rule-select');
+
+  // Load Students
+  try {
+    const res = await fetch('/api/patients'); // Assuming this endpoint exists or similar
+    const students = await res.json();
+    studentSelect.innerHTML = '<option value="">Selecione...</option>';
+    students.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      studentSelect.appendChild(opt);
+    });
+  } catch (e) { console.error("Error loading students", e); }
+
+  // Load Rules
+  try {
+    const res = await fetch('/api/rules');
+    const rules = await res.json();
+    ruleSelect.innerHTML = '<option value="">Selecione...</option>';
+    rules.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      // Show value in text
+      const val = r.value > 0 ? `+${r.value}` : r.value;
+      opt.textContent = `${r.name}`;
+      opt.dataset.points = val;
+      ruleSelect.appendChild(opt);
+    });
+
+    // Add event listener to auto-fill points display
+    ruleSelect.addEventListener('change', (e) => {
+      const selectedOption = e.target.options[e.target.selectedIndex];
+      const pointsDisplay = document.getElementById('score-points-display');
+      if (pointsDisplay && selectedOption) {
+        pointsDisplay.value = selectedOption.dataset.points || '';
+      }
+    });
+  } catch (e) { console.error("Error loading rules", e); }
+}
+
+const formScore = document.getElementById('form-score');
+if (formScore) {
+  formScore.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = {
+      student_id: formData.get('student_id'),
+      rule_id: formData.get('rule_id')
+    };
+
+    try {
+      const res = await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+
+      if (res.ok) {
+        alert('Pontos registrados!');
+        modalScore.classList.add('hidden');
+        loadHouses(); // Refresh ranking
+      } else {
+        alert('Erro: ' + (result.error || 'Desconhecido'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro de conexão.');
+    }
+  });
+}
+
+// --- GESTÃO DE PROVAS (CARD QUEUE) ---
+
+async function loadProvasPendentes() {
+  const container = document.getElementById('provas-pendentes-list');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/card-queue/pending');
+    const provas = await res.json();
+
+    if (!provas.length) {
+      container.innerHTML = '<p style="color:#888; text-align:center; font-style: italic;">Nenhuma prova pendente no momento.</p>';
+      return;
+    }
+
+    container.innerHTML = provas.map(p => {
+      const dateStr = new Date(p.created_at).toLocaleString('pt-BR');
+      return `
+        <div style="background:#0a0a2e; border:1px solid #333; border-radius:8px; padding:16px; margin-bottom:12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <span style="color:#FFD700; font-weight:bold; font-size:1.1rem; text-transform: uppercase;">${p.card_name}</span>
+              <br>
+              <span style="color:#aaa; font-size:0.9rem;">
+                Invocador: <strong style="color:#fff;">${p.attacker_name || 'N/A'}</strong>
+                &nbsp;|&nbsp;
+                Alvo: <strong style="color:#fff;">${p.target_house_name || 'N/A'}</strong>
+                ${p.allied_captain_name ? `<br>Apoio: <strong style="color:#fff;">${p.allied_captain_name}</strong>` : ''}
+              </span>
+              <br>
+              <span style="color:#666; font-size:0.8rem;">📅 ${dateStr}</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button onclick="resolverProva(${p.id}, 'VENCEU')" 
+                style="background:#2e7d32; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold; transition: 0.2s;">
+                ✅ VENCEU
+              </button>
+              <button onclick="resolverProva(${p.id}, 'FRACASSOU')"
+                style="background:#c62828; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold; transition: 0.2s;">
+                ❌ FRACASSOU
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = '<p style="color:red; text-align:center;">Erro ao carregar provas pendentes.</p>';
+  }
+}
+
+async function resolverProva(id, result) {
+  if (!confirm(`Confirma o resultado da prova como: ${result}?`)) return;
+  
+  try {
+    const res = await fetch(`/api/card-queue/${id}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ result })
+    });
+    const data = await res.json();
+    
+    if (res.ok) {
+      alert(data.message || 'Prova resolvida!');
+      loadProvasPendentes();
+      loadHouses(); // Atualiza ranking caso pontuação mude
+    } else {
+      alert('Erro ao resolver: ' + (data.error || 'Desconhecido'));
+    }
+  } catch (e) {
+    alert('Erro de conexão ao resolver prova.');
+  }
+}
+
+window.resolverProva = resolverProva;
+window.loadProvasPendentes = loadProvasPendentes;
+
+// --- PROTEÇÃO DE ADMIN (TAMARA) ---
+document.addEventListener('DOMContentLoaded', () => {
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = currentUser.id === 9999;
+
+  // Se não for admin, oculta os botões
+  if (!isAdmin) {
+    const btnAddScore = document.getElementById('add-score-btn');
+    if (btnAddScore) btnAddScore.style.display = 'none';
+
+    const btnAddHouse = document.querySelector('button[onclick="openCreateHouse()"]');
+    if (btnAddHouse) btnAddHouse.style.display = 'none';
+    
+    const btnRegras = document.querySelector('button[onclick*="regras.html"]');
+    if (btnRegras) btnRegras.parentElement.style.display = 'none';
+    
+    const provasPendentes = document.getElementById('section-provas-pendentes');
+    if (provasPendentes) provasPendentes.style.display = 'none';
+  }
 });

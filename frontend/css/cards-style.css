@@ -1,0 +1,118 @@
+/* cards-style.css */
+.multimodal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.multimodal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.multimodal-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.multimodal-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.multimodal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 30px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+    transition: background 0.2s;
+}
+
+.multimodal-close:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.multimodal-prev, .multimodal-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 30px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+    transition: background 0.2s;
+}
+
+.multimodal-prev:hover, .multimodal-next:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.multimodal-prev {
+    left: 20px;
+}
+
+.multimodal-next {
+    right: 20px;
+}
+
+.multimodal-info {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 1.2rem;
+    z-index: 10000;
+    backdrop-filter: blur(5px);
+    text-align: center;
+}
+
+.multimodal-counter {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    font-size: 1.2rem;
+    z-index: 10000;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+}
