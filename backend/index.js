@@ -1168,6 +1168,58 @@ app.delete('/api/financial/:id', (req, res) => {
 // =============== ROTAS INJETADAS PELO AGENTE ==================
 
 // Rota de Ranking (Cálculo de pontos das casas)
+app.get('/api/ranking/meinhas-por-casa/:houseId', (req, res) => {
+  const houseId = req.params.houseId;
+  const now = new Date();
+  const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+  const currentYear = now.getFullYear();
+
+  const query = `
+    SELECT h.id, h.name, h.color, h.crest,
+           (SELECT COALESCE(SUM(CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END), 0)
+            FROM athletes a
+            LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
+            LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+            WHERE a.house_id = h.id) as total_meinhas,
+           (SELECT target FROM meta_meinhas WHERE house_id = h.id AND month = ? AND year = ? LIMIT 1) as monthly_target
+    FROM houses h
+    WHERE h.id = ? AND h.active = 1
+  `;
+
+  db.get(query, [currentMonth, currentYear, houseId], (err, r) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!r) return res.status(404).json({ error: "Casa não encontrada" });
+
+    // Buscar detalhamento
+    const detailQuery = `
+      SELECT COALESCE(sr.name, hpl.description, 'Ação do Sistema') as action, 
+             COUNT(*) as count, 
+             SUM(COALESCE(sc.points, sr.value)) as total
+      FROM athletes a
+      JOIN scores sc ON a.patient_id = sc.athlete_id
+      LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+      LEFT JOIN house_points_log hpl ON hpl.student_id = a.patient_id 
+           AND hpl.created_at LIKE (substr(sc.created_at, 1, 10) || '%')
+      WHERE a.house_id = ?
+      GROUP BY action
+    `;
+
+    db.all(detailQuery, [houseId], (err, details) => {
+      const target = r.monthly_target || 100;
+      let points_scale = (r.total_meinhas / target) * 10;
+      if (points_scale > 10) points_scale = 10;
+
+      res.json({
+        ...r,
+        total_points: parseFloat(points_scale.toFixed(1)),
+        raw_meinhas: r.total_meinhas,
+        target: target,
+        details: details || []
+      });
+    });
+  });
+});
+
 app.get('/api/ranking', (req, res) => {
   const now = new Date();
   const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -2994,11 +3046,13 @@ app.post('/api/attendance/bulk', (req, res) => {
         });
 
       if (att.status === 'PRESENT') {
-        // 2. Dar +1 meinha imediatamente
+        // 2. Dar +1 meinha imediatamente (Log e Tabela de Pontos)
+        const desc = `Presença Diária (${today}): +1 meinha`;
         db.run(`INSERT INTO house_points_log (house_id, student_id, points_awarded, description) VALUES (?, ?, ?, ?)`,
-          [att.house_id, att.patient_id, 1, `Presença Diária (${today}): +1 meinha`], (err) => {
-            if (err) console.error(`Erro ao dar ponto para ${att.patient_id}:`, err);
-          });
+          [att.house_id, att.patient_id, 1, desc]);
+        
+        db.run(`INSERT INTO scores (athlete_id, points, created_at) VALUES (?, ?, ?)`,
+          [att.patient_id, 1, today + " 12:00:00"]);
 
         // 3. Lógica de 3 presenças -> 1 carta
         db.run(`UPDATE patients SET consecutive_presences = COALESCE(consecutive_presences, 0) + 1 WHERE id = ?`, [att.patient_id], function(err) {

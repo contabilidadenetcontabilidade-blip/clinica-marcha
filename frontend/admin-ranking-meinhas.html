@@ -2,75 +2,182 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Ranking Administrativo - Marcha Cup</title>
+    <title>Ranking de Meinhas - Marcha Cup</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h1 { color: #000033; border-bottom: 2px solid #FFD700; padding-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #000033; color: white; }
-        .status-ok { color: green; font-weight: bold; }
-        .status-fail { color: red; font-weight: bold; }
-        .btn-back { background: #666; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 20px; }
+        body { font-family: 'Outfit', sans-serif; background: #000033; color: white; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 25px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #FFD700; text-align: center; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: rgba(255,255,255,0.6); margin-bottom: 25px; }
+        .house-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; }
+        .house-crest { width: 60px; height: 60px; object-fit: contain; }
+        .house-info h2 { margin: 0; color: var(--gold); }
+        .progress-section { margin-bottom: 30px; }
+        .progress-bar-bg { background: rgba(255,255,255,0.1); height: 25px; border-radius: 12px; overflow: hidden; margin: 10px 0; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #FFD700, #FFA500); transition: width 0.5s ease-out; }
+        .stats-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1rem; }
+        .detail-section { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; }
+        .detail-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .detail-item:last-child { border-bottom: none; }
+        .btn-back { background: rgba(255,255,255,0.1); color: white; padding: 10px 20px; border: none; border-radius: 50px; cursor: pointer; margin-bottom: 20px; }
+        .status-badge { display: inline-block; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; margin-top: 10px; }
+        .admin-table { width: 100%; border-collapse: collapse; margin-top: 20px; color: white; }
+        .admin-table th, .admin-table td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .admin-table th { background: rgba(255,255,255,0.1); color: #FFD700; }
     </style>
 </head>
 <body>
     <div class="container">
-        <button class="btn-back" onclick="window.location.href='cup.html'">← Voltar</button>
-        <h1>🏆 Ranking Detalhado (Meinhas vs Meta)</h1>
-        <p>Visão administrativa do progresso real das casas neste mês.</p>
+        <button class="btn-back" onclick="goBack()">← Voltar</button>
         
-        <table id="ranking-table">
-            <thead>
-                <tr>
-                    <th>Casa</th>
-                    <th>Meinhas Atuais</th>
-                    <th>Meta Mensal</th>
-                    <th>% Atingida</th>
-                    <th>Pontos (0-10)</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td colspan="6" style="text-align:center;">Carregando...</td></tr>
-            </tbody>
-        </table>
+        <div id="admin-view" style="display: none;">
+            <h1>🏆 Ranking Geral de Meinhas</h1>
+            <p class="subtitle">Visão Administrativa (Todas as Casas)</p>
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Casa</th>
+                        <th>Meinhas</th>
+                        <th>Meta</th>
+                        <th>%</th>
+                        <th>Escala</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-tbody"></tbody>
+            </table>
+        </div>
+
+        <div id="student-view" style="display: none;">
+            <h1 id="view-title">Ranking de Meinhas</h1>
+            <p class="subtitle" id="view-month">Mês: Maio 2026</p>
+
+            <div class="house-header">
+                <img id="house-crest" src="" class="house-crest" onerror="this.style.display='none'">
+                <div class="house-info">
+                    <h2 id="house-name">Sua Casa</h2>
+                    <span id="house-status" class="status-badge">EM PROGRESSO</span>
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <div class="stats-row">
+                    <span>Progresso Mensal</span>
+                    <span id="progress-text">0 / 0</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="progress-fill" class="progress-bar-fill" style="width: 0%"></div>
+                </div>
+                <div class="stats-row" style="margin-top: 15px;">
+                    <span>Pontuação na Escala (0-10)</span>
+                    <span id="scale-points" style="font-weight: 800; color: #FFD700;">0/10</span>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h3 style="margin-top: 0; color: #FFD700;">Detalhamento</h3>
+                <div id="detail-list">
+                    <!-- Detalhes injetados via JS -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        async function loadAdminRanking() {
-            try {
-                const res = await fetch('/api/ranking');
-                const data = await res.json();
-                
-                const tbody = document.querySelector('#ranking-table tbody');
-                tbody.innerHTML = '';
-                
-                data.forEach(r => {
-                    const percent = ((r.raw_meinhas / r.target) * 100).toFixed(1);
-                    const statusClass = percent >= 100 ? 'status-ok' : 'status-fail';
-                    const statusText = percent >= 100 ? 'META ATINGIDA' : 'EM PROGRESSO';
-                    
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td style="font-weight:bold; color:${r.color}">${r.name}</td>
-                        <td>${r.raw_meinhas}</td>
-                        <td>${r.target}</td>
-                        <td>${percent}%</td>
-                        <td style="font-weight:bold;">${r.total_points}/10</td>
-                        <td class="${statusClass}">${statusText}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } catch (err) {
-                console.error(err);
-                alert('Erro ao carregar ranking administrativo.');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdmin = user.role === 'admin' || user.role === 'coach' || user.id === 9999;
+        
+        function goBack() {
+            if (isAdmin && !localStorage.getItem('athleteHouse')) {
+                window.location.href = 'cup.html';
+            } else {
+                window.location.href = 'portal_aluno.html';
             }
         }
-        
-        loadAdminRanking();
+
+        async function init() {
+            if (isAdmin) {
+                document.getElementById('admin-view').style.display = 'block';
+                loadAllRankings();
+            } else {
+                document.getElementById('student-view').style.display = 'block';
+                // Pega a casa do usuário. Idealmente está salva no login.
+                // Se não estiver, tentamos buscar do perfil.
+                let houseId = user.house_id;
+                if (!houseId) {
+                    // Fallback: buscar dados do aluno
+                    const res = await fetch(`/api/student-portal/${user.id}`);
+                    const data = await res.json();
+                    houseId = data.house?.id;
+                }
+                if (houseId) loadHouseRanking(houseId);
+                else alert('Erro: Casa não identificada.');
+            }
+        }
+
+        async function loadAllRankings() {
+            const res = await fetch('/api/ranking');
+            const data = await res.json();
+            const tbody = document.getElementById('admin-tbody');
+            tbody.innerHTML = data.map(r => `
+                <tr onclick="showHouseDetail(${r.id})" style="cursor:pointer">
+                    <td style="color:${r.color}; font-weight:bold;">${r.name}</td>
+                    <td>${r.raw_meinhas}</td>
+                    <td>${r.target}</td>
+                    <td>${((r.raw_meinhas/r.target)*100).toFixed(1)}%</td>
+                    <td>${r.total_points}/10</td>
+                </tr>
+            `).join('');
+        }
+
+        function showHouseDetail(id) {
+            document.getElementById('admin-view').style.display = 'none';
+            document.getElementById('student-view').style.display = 'block';
+            loadHouseRanking(id);
+        }
+
+        async function loadHouseRanking(houseId) {
+            try {
+                const res = await fetch(`/api/ranking/meinhas-por-casa/${houseId}`);
+                const data = await res.json();
+
+                document.getElementById('view-title').textContent = `Ranking de Meinhas - ${data.name}`;
+                document.getElementById('house-name').textContent = data.name;
+                document.getElementById('house-name').style.color = data.color;
+                document.getElementById('house-crest').src = data.crest || '';
+                
+                const percent = Math.min(100, (data.raw_meinhas / data.target) * 100);
+                document.getElementById('progress-fill').style.width = `${percent}%`;
+                document.getElementById('progress-text').textContent = `${data.raw_meinhas} / ${data.target} (Meta)`;
+                document.getElementById('scale-points').textContent = `${data.total_points}/10`;
+
+                const badge = document.getElementById('house-status');
+                if (percent >= 100) {
+                    badge.textContent = 'META ATINGIDA';
+                    badge.style.background = '#2e7d32';
+                } else {
+                    badge.textContent = 'EM PROGRESSO';
+                    badge.style.background = '#f57c00';
+                }
+
+                const detailList = document.getElementById('detail-list');
+                if (data.details.length === 0) {
+                    detailList.innerHTML = '<p style="color:#888;">Nenhuma atividade registrada este mês.</p>';
+                } else {
+                    detailList.innerHTML = data.details.map(d => `
+                        <div class="detail-item">
+                            <span>${d.action || 'Ação'} (${d.count}x)</span>
+                            <span style="color:#FFD700; font-weight:bold;">+${d.total}</span>
+                        </div>
+                    `).join('');
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert('Erro ao carregar dados da casa.');
+            }
+        }
+
+        init();
     </script>
 </body>
 </html>
