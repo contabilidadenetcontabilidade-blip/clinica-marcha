@@ -1541,14 +1541,14 @@ function insertScore(athleteId, ruleId, res) {
             (err, influencerEffect) => {
               // Dobra o valor apenas para regras de mídia social se Influencer estiver ativo
               // IDs fixos das regras de mídia social: 3 (Story) e 5 (Reels/Feed)
-              const isMidia = [3, 5].includes(ruleId);
+              const isMidia = [3, 5].includes(parseInt(ruleId));
 
-              // Inserir score extra se Influencer ativo e regra de mídia
-              if (influencerEffect && isMidia) {
-                db.run("INSERT INTO scores (athlete_id, rule_id) VALUES (?, ?)", [athlete.patient_id, ruleId]);
-              }
-
+              // INSERT principal (sempre)
               db.run("INSERT INTO scores (athlete_id, rule_id) VALUES (?, ?)", [athlete.patient_id, ruleId], function (err) {
+                // Se Influencer ativo E regra de mídia: insere um SEGUNDO score (bônus dobrado)
+                if (!err && influencerEffect && isMidia) {
+                  db.run("INSERT INTO scores (athlete_id, rule_id) VALUES (?, ?)", [athlete.patient_id, ruleId]);
+                }
                 if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
                 const scoreId = this.lastID;
 
@@ -1576,7 +1576,7 @@ function insertScore(athleteId, ruleId, res) {
               // Total Mensal da Casa
               db.get(`
               SELECT 
-                (SELECT COALESCE(SUM(sr.value), 0) FROM scores s JOIN athletes a ON s.athlete_id = a.id JOIN scoring_rules sr ON s.rule_id = sr.id WHERE a.house_id = ? AND s.created_at LIKE ?) +
+                (SELECT COALESCE(SUM(COALESCE(s.points, sr.value)), 0) FROM scores s JOIN athletes a ON s.athlete_id = a.patient_id JOIN scoring_rules sr ON s.rule_id = sr.id WHERE a.house_id = ? AND s.created_at LIKE ?) +
                 (SELECT COALESCE(SUM(points_awarded), 0) FROM house_points_log WHERE house_id = ? AND created_at LIKE ?) as total_mes
             `, [athlete.house_id, currentMonthLike, athlete.house_id, currentMonthLike], (err, tRow) => {
                 const totalMes = tRow ? tRow.total_mes : 0;
