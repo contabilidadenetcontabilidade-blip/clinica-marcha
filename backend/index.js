@@ -22,7 +22,7 @@ app.get('/admin/financeiro', (req, res) => {
 app.get('/admin/agenda', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/agenda.html'));
 });
-app.use('/assets', express.static(path.join(__dirname, '../assets')));
+app.use('/assets', express.static(path.join(__dirname, '../frontend/assets')));
 // --- EXPANSÃO MARCHA CUP ---
 app.use('/manual', express.static(path.join(__dirname, '../manual')));
 app.use('/api/cards/image', express.static(path.join(__dirname, '../cartas')));
@@ -273,10 +273,10 @@ app.post('/api/athletes', (req, res) => {
 app.get('/api/houses/:id/athletes', (req, res) => {
   const houseId = req.params.id;
   const query = `
-    SELECT a.id, a.name,
-           COALESCE(SUM(sr.value), 0) AS total_points
+    SELECT a.id, a.name, a.is_captain,
+           COALESCE(SUM(COALESCE(sc.points, sr.value)), 0) AS total_points
     FROM athletes a
-    LEFT JOIN scores sc ON sc.athlete_id = a.id
+    LEFT JOIN scores sc ON sc.athlete_id = a.patient_id
     LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
     WHERE a.house_id = ?
     GROUP BY a.id, a.name
@@ -338,10 +338,11 @@ app.delete('/api/athletes/:id', (req, res) => {
 
 app.put('/api/athletes/:id/captain', (req, res) => {
   const athleteId = req.params.id;
-  const { is_captain, admin_role } = req.body;
+  console.log(`[CAPTAIN] Recebido PUT para atleta ${athleteId}. Body:`, req.body);
+  const { is_captain, admin_role, admin_id } = req.body;
   
   // Apenas admin ou coach pode promover
-  if (admin_role !== 'admin' && admin_role !== 'coach' && req.body.admin_id !== 9999) {
+  if (admin_role !== 'admin' && admin_role !== 'coach' && admin_id !== 9999) {
     return res.status(403).json({ error: "Acesso negado. Apenas coordenadores podem nomear capitães." });
   }
 
@@ -1221,49 +1222,105 @@ app.get('/api/ranking/meinhas-por-casa/:houseId', (req, res) => {
 });
 
 app.get('/api/ranking', (req, res) => {
-  const now = new Date();
-  const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
-  const currentYear = now.getFullYear();
+  // 1. Buscar todas as casas ativas
+  db.all("SELECT id, name, color, crest FROM houses WHERE active = 1", [], (err, houses) => {
+    if (err) return res.status(500).json({ error: err.message });
 
-  const query = `
-    SELECT h.id, h.name, h.color, h.crest,
-           (SELECT COALESCE(SUM(CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END), 0)
-            FROM athletes a
-            LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
-            LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
-            WHERE a.house_id = h.id) as total_meinhas,
-           (SELECT target FROM meta_meinhas WHERE house_id = h.id AND month = ? AND year = ? LIMIT 1) as monthly_target
-    FROM houses h
-    WHERE h.active = 1
-    GROUP BY h.id
-    ORDER BY total_meinhas DESC
-  `;
+    // 2. Buscar todas as metas configuradas
+    db.all("SELECT house_id, month, year, target FROM meta_meinhas", [], (err, metas) => {
+      if (err) return res.status(500).json({ error: err.message });
 
-  db.all(query, [currentMonth, currentYear], (err, rows) => {
-    if (err) {
-      console.error("Erro no ranking:", err);
-      return res.status(500).json({ error: "Erro ao calcular ranking" });
-    }
-    
-    const rankings = rows.map(r => {
-      const target = r.monthly_target || 100; // Default 100 se não houver meta
-      let points_scale = (r.total_meinhas / target) * 10;
-      if (points_scale > 10) points_scale = 10;
-      if (points_scale < 0) points_scale = 0;
-      
-      return {
-        ...r,
-        total_points: parseFloat(points_scale.toFixed(1)), // Escala 0-10
-        raw_meinhas: r.total_meinhas,
-        target: target,
-        display_score: `${parseFloat(points_scale.toFixed(1))}/10`
-      };
+      // 3. Buscar todas as meinhas acumuladas por mês/casa
+      const meinhasQuery = `
+        SELECT 
+          a.house_id,
+          strftime('%m', sc.created_at) as month,
+          strftime('%Y', sc.created_at) as year,
+          SUM(COALESCE(sc.points, sr.value)) as total_meinhas
+        FROM scores sc
+        JOIN athletes a ON sc.athlete_id = a.patient_id
+        LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+        GROUP BY a.house_id, year, month
+      `;
+
+      db.all(meinhasQuery, [], (err, monthlyScores) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        // 4. Buscar contagem de Pomos por casa
+        const pomoQuery = `
+          SELECT a.house_id, COUNT(*) as pomo_count
+          FROM scores sc
+          JOIN athletes a ON sc.athlete_id = a.patient_id
+          JOIN scoring_rules sr ON sc.rule_id = sr.id
+          WHERE sr.name LIKE '%Pomo%'
+          GROUP BY a.house_id
+        `;
+
+        db.all(pomoQuery, [], (err, pomos) => {
+          if (err) return res.status(500).json({ error: err.message });
+
+          // Determinar quem tem mais pomos
+          let maxPomos = 0;
+          pomos.forEach(p => { if (p.pomo_count > maxPomos) maxPomos = p.pomo_count; });
+          const housesWithMostPomos = pomos.filter(p => p.pomo_count === maxPomos && maxPomos > 0).map(p => p.house_id);
+
+          // 5. Calcular pontos finais para cada casa
+          const finalRankings = houses.map(house => {
+            let totalPoints = 0;
+            let monthsAchieved = [];
+
+            // Verificar metas atingidas (Apenas meses 03 a 11)
+            const houseMetas = metas.filter(m => {
+              const mInt = parseInt(m.month, 10);
+              return m.house_id === house.id && mInt >= 3 && mInt <= 11;
+            });
+
+            houseMetas.forEach(meta => {
+              const score = monthlyScores.find(s => 
+                s.house_id === house.id && 
+                s.month === meta.month && 
+                s.year.toString() === meta.year.toString()
+              );
+              
+              const currentMeinhas = score ? score.total_meinhas : 0;
+              if (currentMeinhas >= meta.target) {
+                totalPoints += 1;
+                monthsAchieved.push(`${meta.month}/${meta.year}`);
+              }
+            });
+
+            // Ponto do Pomo: Casa com MAIS Pomos ganha +1
+            const hasMorePomos = housesWithMostPomos.includes(house.id);
+            if (hasMorePomos) totalPoints += 1;
+
+            // Limitar a 10 (9 meses + 1 pomo)
+            if (totalPoints > 10) totalPoints = 10;
+
+            // Buscar meinhas do mês atual para exibição informativa
+            const now = new Date();
+            const currM = (now.getMonth() + 1).toString().padStart(2, '0');
+            const currY = now.getFullYear().toString();
+            const currScore = monthlyScores.find(s => 
+              s.house_id === house.id && s.month === currM && s.year === currY
+            );
+
+            return {
+              ...house,
+              total_points: totalPoints,
+              raw_meinhas: currScore ? currScore.total_meinhas : 0,
+              display_score: `${totalPoints}/10`,
+              months_achieved: monthsAchieved,
+              has_more_pomos: hasMorePomos
+            };
+          });
+
+          // Ordenar pelo total de pontos
+          finalRankings.sort((a, b) => b.total_points - a.total_points || b.raw_meinhas - a.raw_meinhas);
+
+          res.json(finalRankings);
+        });
+      });
     });
-
-    // Ordena pelo novo total_points (escala 0-10)
-    rankings.sort((a, b) => b.total_points - a.total_points);
-    
-    res.json(rankings);
   });
 });
 
@@ -3168,6 +3225,10 @@ setInterval(() => {
 // --------- INICIAR SERVIDOR ----------
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Gestão Marcha rodando em http://localhost:${PORT} e acessível via IP de Rede`);
-  const logMsg = `[${new Date().toISOString()}] SERVIDOR INICIADO/REINICIADO (Porta: ${PORT}). Estável.\n`;
-  require('fs').appendFileSync(require('path').join(__dirname, '../uptime.log'), logMsg, { encoding: 'utf8' });
+  try {
+    const logMsg = `[${new Date().toISOString()}] SERVIDOR INICIADO/REINICIADO (Porta: ${PORT}). Estável.\n`;
+    require('fs').appendFileSync(require('path').join(__dirname, '../uptime.log'), logMsg, { encoding: 'utf8' });
+  } catch (e) {
+    console.warn("⚠️ Não foi possível escrever no uptime.log:", e.message);
+  }
 });

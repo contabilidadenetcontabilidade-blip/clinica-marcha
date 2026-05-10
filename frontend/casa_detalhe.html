@@ -65,7 +65,7 @@
       <section class="card">
         <div class="card-header">
           <h2>Ações da Casa</h2>
-          <button onclick="openAddScore()" style="background: var(--gold, #FFD700); color: #000; font-weight: bold; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">+ Pontos / 🃏Poder</button>
+          <button id="btn-open-score" onclick="openAddScore()" style="background: var(--gold, #FFD700); color: #000; font-weight: bold; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">+ Meinhas / 🃏Poder</button>
         </div>
         <p style="color:var(--text-secondary,#aaa);font-size:0.85rem;margin-top:10px;">Distribua pontos, aplique regras e conceda as cartas.</p>
       </section>
@@ -103,7 +103,7 @@
       <div style="display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid #333;">
         <button id="tab-pontos" onclick="switchTab('pontos')"
           style="flex:1; padding:10px; background:#1a1a3e; color:#FFD700; border:none; cursor:pointer; font-weight:bold; border-bottom:2px solid #FFD700;">
-          📊 Registrar Pontos
+          📊 Registrar Meinhas
         </button>
         <button id="tab-carta" onclick="switchTab('carta')"
           style="flex:1; padding:10px; background:#0a0a2e; color:#aaa; border:none; cursor:pointer; font-weight:bold;">

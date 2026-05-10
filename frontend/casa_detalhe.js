@@ -99,7 +99,7 @@ async function loadDashboard() {
 
         const pointsSpan = document.createElement('span');
         pointsSpan.className = 'athlete-points';
-        pointsSpan.textContent = `${ath.total_points} pts`;
+        pointsSpan.textContent = `${ath.total_points} meinhas`;
 
         const nameContainer = document.createElement('div');
         nameContainer.style.display = 'flex';
@@ -150,7 +150,7 @@ function populateScoreModalSelects() {
   currentAthletes.forEach(a => {
     const opt = document.createElement('option');
     opt.value = a.id;
-    opt.textContent = `${a.name} (${a.total_points} pts)`;
+    opt.textContent = `${a.name} (${a.total_points} meinhas)`;
     selAthlete.appendChild(opt);
   });
 
@@ -256,18 +256,18 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (!res.ok) {
-        showError('Erro ao registrar pontos: ' + (data.error || res.status));
+        showError('Erro ao registrar meinhas: ' + (data.error || res.status));
         setButtonLoading(submitBtn, false);
         return;
       }
-      showSuccess('Pontos registrados com sucesso!');
+      showSuccess('Meinhas registradas com sucesso!');
       formScore.reset();
       closeAddScore();
       loadDashboard();
       setButtonLoading(submitBtn, false);
     } catch (err) {
       console.error(err);
-      showError('Erro inesperado ao registrar pontos.');
+      showError('Erro inesperado ao registrar meinhas.');
       setButtonLoading(submitBtn, false);
     }
   });
@@ -339,4 +339,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // carrega dados iniciais
   loadDashboard();
   loadRules();
+
+  // Se veio com #chat na URL ou parâmetro card, abre a respectiva aba
+  if (window.location.hash === '#chat') {
+    switchMainTab('chat');
+  }
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('card')) {
+    setTimeout(() => {
+      openAddScore();
+      switchTab('carta');
+    }, 1000); // Aguarda carregar atletas/regras
+  }
 });

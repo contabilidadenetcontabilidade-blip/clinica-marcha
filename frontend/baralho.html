@@ -259,7 +259,7 @@
 
             container.innerHTML = cards.map(card => {
                 const rarityClass = `rarity-${card.rarity.toLowerCase()}`;
-                const imgPath = `/api/cartas/${card.image_path.split('/').pop()}`;
+                const imgPath = `/cartas/${card.image_path.split('/').pop()}`;
 
                 // Botões: Atletas comuns veem "Solicitar Uso", Tamara/Capitães veem "ATIVAR PODER"
                 const canActivate = userRole === 'admin' || userRole === 'captain';
