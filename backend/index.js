@@ -645,21 +645,14 @@ app.delete('/api/patients/:id', (req, res) => {
     return res.status(400).json({ error: "ID inválido" });
   }
 
-  // Soft delete
-  db.run(
-    "UPDATE patients SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-    [id],
-    function (err) {
-      if (err) {
-        console.error("Erro ao desativar paciente:", err);
-        return res.status(500).json({ error: "Erro ao desativar paciente" });
-      }
-      if (this.changes === 0) {
-        return res.status(404).json({ error: "Paciente não encontrado" });
-      }
+  db.serialize(() => {
+    db.run("UPDATE patients SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [id]);
+    db.run("UPDATE athletes SET active = 0, deleted_at = datetime('now') WHERE patient_id = ?", [id]);
+    db.run("UPDATE users SET active = 0 WHERE patient_id = ?", [id], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true });
-    }
-  );
+    });
+  });
 });
 
 // Upload de Foto do Paciente/Aluno
