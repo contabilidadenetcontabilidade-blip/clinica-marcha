@@ -6,9 +6,39 @@ const bcrypt = require('bcrypt');
 const db = require('./db');
 const cron = require('node-cron');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = 3000;
+
+// Middleware de verificação de token (async) — checa se atleta está ativo
+async function verifyToken(req, res, next) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  if (!authHeader) return res.status(401).json({ error: 'Token ausente' });
+  const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    // Tenta extrair um id de atleta do token (ajustável conforme payload)
+    const athleteId = decoded && (decoded.id || decoded.userId || decoded.athlete_id);
+    if (!athleteId) {
+      req.user = decoded;
+      return next();
+    }
+
+    const row = await new Promise((resolve, reject) => {
+      db.get("SELECT id, active FROM athletes WHERE id = ?", [athleteId], (err, r) => err ? reject(err) : resolve(r));
+    });
+
+    if (!row || row.active !== 1) {
+      return res.status(403).json({ error: 'Usuário desativado' });
+    }
+
+    req.user = decoded;
+    return next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+}
 
 // --------- MIDDLEWARES BÁSICOS ----------
 app.use(express.json());
@@ -180,7 +210,7 @@ app.get('/api/houses/:id/dashboard', (req, res) => {
       FROM scores sc
       JOIN scoring_rules sr ON sc.rule_id = sr.id
       JOIN athletes a ON sc.athlete_id = a.patient_id
-      WHERE a.house_id = ?
+      WHERE a.house_id = ? AND a.active = 1
     `;
 
     const athletesQuery = `
@@ -189,7 +219,7 @@ app.get('/api/houses/:id/dashboard', (req, res) => {
       FROM athletes a
       LEFT JOIN scores sc ON sc.athlete_id = a.patient_id
       LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
-      WHERE a.house_id = ?
+      WHERE a.house_id = ? AND a.active = 1
       GROUP BY a.id, a.name, a.is_captain
       ORDER BY total_points DESC, a.name ASC
     `;
@@ -200,7 +230,7 @@ app.get('/api/houses/:id/dashboard', (req, res) => {
       FROM scores sc
       JOIN scoring_rules sr ON sc.rule_id = sr.id
       JOIN athletes a ON sc.athlete_id = a.patient_id
-      WHERE a.house_id = ?
+      WHERE a.house_id = ? AND a.active = 1
       GROUP BY sr.id, sr.name
       ORDER BY total_points DESC
       LIMIT 1
@@ -278,7 +308,7 @@ app.get('/api/houses/:id/athletes', (req, res) => {
     FROM athletes a
     LEFT JOIN scores sc ON sc.athlete_id = a.patient_id
     LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
-    WHERE a.house_id = ?
+    WHERE a.house_id = ? AND a.active = 1
     GROUP BY a.id, a.name
     ORDER BY total_points DESC, a.name ASC
   `;
@@ -313,27 +343,47 @@ app.get('/api/athletes/:id', (req, res) => {
 
 app.delete('/api/athletes/:id', (req, res) => {
   const id = req.params.id;
-  
-  db.serialize(() => {
-    db.run("BEGIN TRANSACTION");
-    // Soft delete no atleta
-    db.run("UPDATE athletes SET active = 0 WHERE id = ?", [id], function(err) {
-      if (err) {
-        db.run("ROLLBACK");
-        return res.status(500).json({ error: "Erro ao deletar atleta" });
+  // Garantir que a coluna deleted_at exista (SQLite: PRAGMA table_info)
+  db.all("PRAGMA table_info(athletes)", [], (err, cols) => {
+    if (!err && Array.isArray(cols)) {
+      const hasDeletedAt = cols.some(c => c && c.name === 'deleted_at');
+      if (!hasDeletedAt) {
+        // Tentativa de adicionar a coluna (não faz rollback se já existir)
+        db.run("ALTER TABLE athletes ADD COLUMN deleted_at TIMESTAMP", [], (alterErr) => {
+          if (alterErr) console.warn('Não foi possível adicionar coluna deleted_at (provavelmente já existe):', alterErr.message);
+          proceedSoftDelete();
+        });
+      } else {
+        proceedSoftDelete();
       }
-      
-      // Também desativa o paciente vinculado
-      db.run("UPDATE patients SET active = 0 WHERE id = (SELECT patient_id FROM athletes WHERE id = ?)", [id], function(err) {
+    } else {
+      // Se algo deu errado ao checar, tenta prosseguir com o soft delete mesmo assim
+      proceedSoftDelete();
+    }
+  });
+
+  function proceedSoftDelete() {
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+      // Soft delete no atleta: marca inativo e registra timestamp de deleção
+      db.run("UPDATE athletes SET active = 0, deleted_at = CURRENT_TIMESTAMP WHERE id = ?", [id], function(err) {
         if (err) {
           db.run("ROLLBACK");
-          return res.status(500).json({ error: "Erro ao desativar paciente vinculado" });
+          return res.status(500).json({ error: "Erro ao deletar atleta" });
         }
-        db.run("COMMIT");
-        res.json({ success: true, message: "Atleta e paciente desativados com sucesso." });
+
+        // Também desativa o paciente vinculado
+        db.run("UPDATE patients SET active = 0 WHERE id = (SELECT patient_id FROM athletes WHERE id = ?)", [id], function(err) {
+          if (err) {
+            db.run("ROLLBACK");
+            return res.status(500).json({ error: "Erro ao desativar paciente vinculado" });
+          }
+          db.run("COMMIT");
+          res.json({ success: true, message: "Atleta e paciente desativados com sucesso." });
+        });
       });
     });
-  });
+  }
 });
 
 app.put('/api/athletes/:id/captain', (req, res) => {
@@ -342,7 +392,7 @@ app.put('/api/athletes/:id/captain', (req, res) => {
   const { is_captain, admin_role, admin_id } = req.body;
   
   // Apenas admin ou coach pode promover
-  if (admin_role !== 'admin' && admin_role !== 'coach' && admin_id !== 9999) {
+  if (admin_role !== 'admin' && admin_role !== 'coach') {
     return res.status(403).json({ error: "Acesso negado. Apenas coordenadores podem nomear capitães." });
   }
 
@@ -356,31 +406,25 @@ app.put('/api/athletes/:id/captain', (req, res) => {
 app.get('/api/athletes/:id/scores', (req, res) => {
   const athleteId = req.params.id;
 
-  // Traduzir athlete_id → patient_id (scores armazena patient_id)
-  db.get("SELECT patient_id FROM athletes WHERE id = ?", [athleteId], (err, athlete) => {
-    if (err || !athlete) {
-      return res.status(404).json({ error: "Atleta não encontrado" });
-    }
-
-    const patientId = athlete.patient_id;
-    const query = `
-      SELECT
-        sc.id,
-        sr.name AS rule_name,
-        CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END AS value,
-        sc.created_at
-      FROM scores sc
-      JOIN scoring_rules sr ON sc.rule_id = sr.id
-      WHERE sc.athlete_id = ?
-      ORDER BY sc.created_at DESC
-    `;
-    db.all(query, [patientId], (err, rows) => {
+  // Buscar histórico de pontos garantindo atleta ativo
+  const query = `
+    SELECT
+      sc.id,
+      sr.name AS rule_name,
+      CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END AS value,
+      sc.created_at
+    FROM scores sc
+    JOIN scoring_rules sr ON sc.rule_id = sr.id
+    JOIN athletes a ON a.patient_id = sc.athlete_id
+    WHERE a.id = ? AND a.active = 1
+    ORDER BY sc.created_at DESC
+  `;
+  db.all(query, [athleteId], (err, rows) => {
       if (err) {
         console.error("Erro ao buscar histórico do atleta:", err);
         return res.status(500).json({ error: "Erro ao buscar histórico do atleta" });
       }
       res.json(rows || []);
-    });
   });
 });
 
@@ -1177,11 +1221,11 @@ app.get('/api/ranking/meinhas-por-casa/:houseId', (req, res) => {
 
   const query = `
     SELECT h.id, h.name, h.color, h.crest,
-           (SELECT COALESCE(SUM(CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END), 0)
+            (SELECT COALESCE(SUM(CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END), 0)
             FROM athletes a
             LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
             LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
-            WHERE a.house_id = h.id) as total_meinhas,
+            WHERE a.house_id = h.id AND a.active = 1) as total_meinhas,
            (SELECT target FROM meta_meinhas WHERE house_id = h.id AND month = ? AND year = ? LIMIT 1) as monthly_target
     FROM houses h
     WHERE h.id = ? AND h.active = 1
@@ -1191,136 +1235,101 @@ app.get('/api/ranking/meinhas-por-casa/:houseId', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!r) return res.status(404).json({ error: "Casa não encontrada" });
 
-    // Buscar detalhamento
-    const detailQuery = `
-      SELECT COALESCE(sr.name, hpl.description, 'Ação do Sistema') as action, 
-             COUNT(*) as count, 
-             SUM(COALESCE(sc.points, sr.value)) as total
-      FROM athletes a
-      JOIN scores sc ON a.patient_id = sc.athlete_id
-      LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
-      LEFT JOIN house_points_log hpl ON hpl.student_id = a.patient_id 
-           AND hpl.created_at LIKE (substr(sc.created_at, 1, 10) || '%')
-      WHERE a.house_id = ?
-      GROUP BY action
-    `;
+    // Verificar se há efeito TRAPACA ativo para esta casa
+    db.get("SELECT id FROM active_effects WHERE house_id = ? AND effect_type = 'TRAPACA' AND expires_at > CURRENT_TIMESTAMP LIMIT 1", [houseId], (err, trapaca) => {
+      if (err) console.error("Erro ao consultar TRAPACA:", err);
 
-    db.all(detailQuery, [houseId], (err, details) => {
-      const target = r.monthly_target || 100;
-      let points_scale = (r.total_meinhas / target) * 10;
-      if (points_scale > 10) points_scale = 10;
+      let adjustedTarget = r.monthly_target || 100;
+      if (trapaca) {
+        adjustedTarget = Math.ceil(adjustedTarget * 1.15);
+      }
 
-      res.json({
-        ...r,
-        total_points: parseFloat(points_scale.toFixed(1)),
-        raw_meinhas: r.total_meinhas,
-        target: target,
-        details: details || []
+      // Buscar detalhamento
+      const detailQuery = `
+        SELECT COALESCE(sr.name, hpl.description, 'Ação do Sistema') as action, 
+               COUNT(*) as count, 
+               SUM(COALESCE(sc.points, sr.value)) as total
+        FROM athletes a
+        JOIN scores sc ON a.patient_id = sc.athlete_id
+        LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+        LEFT JOIN house_points_log hpl ON hpl.student_id = a.patient_id 
+             AND hpl.created_at LIKE (substr(sc.created_at, 1, 10) || '%')
+        WHERE a.house_id = ? AND a.active = 1
+        GROUP BY action
+      `;
+
+      db.all(detailQuery, [houseId], (err, details) => {
+        let points_scale = (r.total_meinhas / adjustedTarget) * 10;
+        if (points_scale > 10) points_scale = 10;
+
+        res.json({
+          ...r,
+          total_points: parseFloat(points_scale.toFixed(1)),
+          raw_meinhas: r.total_meinhas,
+          target: adjustedTarget,
+          trapaca_active: !!trapaca,
+          details: details || []
+        });
       });
     });
   });
 });
 
 app.get('/api/ranking', (req, res) => {
-  // 1. Buscar todas as casas ativas
-  db.all("SELECT id, name, color, crest FROM houses WHERE active = 1", [], (err, houses) => {
+  const now = new Date();
+  const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+  const currentYear = now.getFullYear().toString();
+
+  const query = `
+    SELECT h.id, h.name, h.color, h.crest,
+           (SELECT COALESCE(SUM(COALESCE(sc.points, sr.value)), 0)
+            FROM athletes a
+            LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
+            LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+            WHERE a.house_id = h.id) as total_meinhas,
+           (SELECT target FROM meta_meinhas WHERE house_id = h.id AND month = ? AND year = ? LIMIT 1) as monthly_target
+    FROM houses h
+    WHERE h.active = 1
+  `;
+
+  db.all(query, [currentMonth, currentYear], (err, houses) => {
     if (err) return res.status(500).json({ error: err.message });
 
-    // 2. Buscar todas as metas configuradas
-    db.all("SELECT house_id, month, year, target FROM meta_meinhas", [], (err, metas) => {
-      if (err) return res.status(500).json({ error: err.message });
+    const processHouses = (index) => {
+      if (index >= houses.length) {
+        // Todas as casas processadas, retornar resultado
+        const finalRankings = houses.map(house => {
+          const target = house.monthly_target || 100;
+          let points_scale = (house.total_meinhas / target) * 10;
+          if (points_scale > 10) points_scale = 10;
 
-      // 3. Buscar todas as meinhas acumuladas por mês/casa
-      const meinhasQuery = `
-        SELECT 
-          a.house_id,
-          strftime('%m', sc.created_at) as month,
-          strftime('%Y', sc.created_at) as year,
-          SUM(COALESCE(sc.points, sr.value)) as total_meinhas
-        FROM scores sc
-        JOIN athletes a ON sc.athlete_id = a.patient_id
-        LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
-        GROUP BY a.house_id, year, month
-      `;
-
-      db.all(meinhasQuery, [], (err, monthlyScores) => {
-        if (err) return res.status(500).json({ error: err.message });
-
-        // 4. Buscar contagem de Pomos por casa
-        const pomoQuery = `
-          SELECT a.house_id, COUNT(*) as pomo_count
-          FROM scores sc
-          JOIN athletes a ON sc.athlete_id = a.patient_id
-          JOIN scoring_rules sr ON sc.rule_id = sr.id
-          WHERE sr.name LIKE '%Pomo%'
-          GROUP BY a.house_id
-        `;
-
-        db.all(pomoQuery, [], (err, pomos) => {
-          if (err) return res.status(500).json({ error: err.message });
-
-          // Determinar quem tem mais pomos
-          let maxPomos = 0;
-          pomos.forEach(p => { if (p.pomo_count > maxPomos) maxPomos = p.pomo_count; });
-          const housesWithMostPomos = pomos.filter(p => p.pomo_count === maxPomos && maxPomos > 0).map(p => p.house_id);
-
-          // 5. Calcular pontos finais para cada casa
-          const finalRankings = houses.map(house => {
-            let totalPoints = 0;
-            let monthsAchieved = [];
-
-            // Verificar metas atingidas (Apenas meses 03 a 11)
-            const houseMetas = metas.filter(m => {
-              const mInt = parseInt(m.month, 10);
-              return m.house_id === house.id && mInt >= 3 && mInt <= 11;
-            });
-
-            houseMetas.forEach(meta => {
-              const score = monthlyScores.find(s => 
-                s.house_id === house.id && 
-                s.month === meta.month && 
-                s.year.toString() === meta.year.toString()
-              );
-              
-              const currentMeinhas = score ? score.total_meinhas : 0;
-              if (currentMeinhas >= meta.target) {
-                totalPoints += 1;
-                monthsAchieved.push(`${meta.month}/${meta.year}`);
-              }
-            });
-
-            // Ponto do Pomo: Casa com MAIS Pomos ganha +1
-            const hasMorePomos = housesWithMostPomos.includes(house.id);
-            if (hasMorePomos) totalPoints += 1;
-
-            // Limitar a 10 (9 meses + 1 pomo)
-            if (totalPoints > 10) totalPoints = 10;
-
-            // Buscar meinhas do mês atual para exibição informativa
-            const now = new Date();
-            const currM = (now.getMonth() + 1).toString().padStart(2, '0');
-            const currY = now.getFullYear().toString();
-            const currScore = monthlyScores.find(s => 
-              s.house_id === house.id && s.month === currM && s.year === currY
-            );
-
-            return {
-              ...house,
-              total_points: totalPoints,
-              raw_meinhas: currScore ? currScore.total_meinhas : 0,
-              display_score: `${totalPoints}/10`,
-              months_achieved: monthsAchieved,
-              has_more_pomos: hasMorePomos
-            };
-          });
-
-          // Ordenar pelo total de pontos
-          finalRankings.sort((a, b) => b.total_points - a.total_points || b.raw_meinhas - a.raw_meinhas);
-
-          res.json(finalRankings);
+          return {
+            ...house,
+            total_points: parseFloat(points_scale.toFixed(1)),
+            raw_meinhas: house.total_meinhas,
+            display_score: `${parseFloat(points_scale.toFixed(1))}/10`,
+            target: target
+          };
         });
+
+        finalRankings.sort((a, b) => b.total_points - a.total_points || b.raw_meinhas - a.raw_meinhas);
+        res.json(finalRankings);
+        return;
+      }
+
+      const house = houses[index];
+      
+      // Verificar TRAPACA para cada casa
+      db.get("SELECT id FROM active_effects WHERE house_id = ? AND effect_type = 'TRAPACA' AND expires_at > CURRENT_TIMESTAMP LIMIT 1", 
+        [house.id], (err, trapaca) => {
+        if (!err && trapaca) {
+          house.monthly_target = Math.ceil((house.monthly_target || 100) * 1.15);
+        }
+        processHouses(index + 1);
       });
-    });
+    };
+
+    processHouses(0);
   });
 });
 
@@ -1348,22 +1357,28 @@ app.get('/api/ranking/minha-casa-detalhado', (req, res) => {
     db.get(houseQuery, [currentMonth, currentYear, houseId], (err, house) => {
       if (err || !house) return res.status(500).json({ error: "Erro ao buscar dados da casa" });
 
-      // 3. Buscar Atletas e suas Meinhas
-      const athletesQuery = `
-        SELECT a.patient_id as id, a.name, 
-               COALESCE(SUM(COALESCE(sc.points, sr.value)), 0) as meinhas
-        FROM athletes a
-        LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
-        LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
-        WHERE a.house_id = ? AND a.active = 1
-        GROUP BY a.patient_id
-        ORDER BY meinhas DESC
-      `;
+      // Verificar TRAPACA ativo
+      db.get("SELECT id FROM active_effects WHERE house_id = ? AND effect_type = 'TRAPACA' AND expires_at > CURRENT_TIMESTAMP LIMIT 1", [houseId], (err, trapaca) => {
+        if (!err && trapaca) {
+          house.monthly_target = Math.ceil((house.monthly_target || 100) * 1.15);
+        }
 
-      db.all(athletesQuery, [houseId], (err, athletes) => {
-        if (err) return res.status(500).json({ error: "Erro ao buscar atletas" });
+        // 3. Buscar Atletas e suas Meinhas
+        const athletesQuery = `
+          SELECT a.patient_id as id, a.name, 
+                 COALESCE(SUM(COALESCE(sc.points, sr.value)), 0) as meinhas
+          FROM athletes a
+          LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
+          LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
+          WHERE a.house_id = ? AND a.active = 1
+          GROUP BY a.patient_id
+          ORDER BY meinhas DESC
+        `;
 
-        const target = house.monthly_target || 100;
+        db.all(athletesQuery, [houseId], (err, athletes) => {
+          if (err) return res.status(500).json({ error: "Erro ao buscar atletas" });
+
+          const target = house.monthly_target || 100;
         const totalMeinhas = athletes.reduce((acc, curr) => acc + curr.meinhas, 0);
         const pointsAchieved = totalMeinhas >= target;
 
@@ -1392,15 +1407,16 @@ app.get('/api/ranking/minha-casa-detalhado', (req, res) => {
           points_achieved: pointsAchieved,
           athletes: detailedAthletes
         });
+        });
       });
     });
   });
 });
 
-app.post('/api/admin/set-meta', (req, res) => {
+app.post('/api/admin/metas', (req, res) => {
   const { house_id, month, year, target, admin_role, admin_id } = req.body;
   
-  if (admin_id !== 9999 && admin_role !== 'admin' && admin_role !== 'coach') {
+  if (admin_role !== 'admin' && admin_role !== 'coach') {
     return res.status(403).json({ error: "Acesso negado." });
   }
   
@@ -1411,7 +1427,7 @@ app.post('/api/admin/set-meta', (req, res) => {
     });
 });
 
-app.get('/api/admin/get-metas', (req, res) => {
+app.get('/api/admin/metas', (req, res) => {
   db.all(`
     SELECT m.*, h.name as house_name 
     FROM meta_meinhas m 
@@ -1576,7 +1592,7 @@ function insertScore(athleteId, ruleId, res) {
               // Total Mensal da Casa
               db.get(`
               SELECT 
-                (SELECT COALESCE(SUM(COALESCE(s.points, sr.value)), 0) FROM scores s JOIN athletes a ON s.athlete_id = a.patient_id JOIN scoring_rules sr ON s.rule_id = sr.id WHERE a.house_id = ? AND s.created_at LIKE ?) +
+                (SELECT COALESCE(SUM(COALESCE(s.points, sr.value)), 0) FROM scores s JOIN athletes a ON s.athlete_id = a.patient_id JOIN scoring_rules sr ON s.rule_id = sr.id WHERE a.house_id = ? AND a.active = 1 AND s.created_at LIKE ?) +
                 (SELECT COALESCE(SUM(points_awarded), 0) FROM house_points_log WHERE house_id = ? AND created_at LIKE ?) as total_mes
             `, [athlete.house_id, currentMonthLike, athlete.house_id, currentMonthLike], (err, tRow) => {
                 const totalMes = tRow ? tRow.total_mes : 0;
@@ -1668,7 +1684,7 @@ app.get('/api/house/:id/cards', (req, res) => {
         JOIN cards c ON sc.card_id = c.id
         JOIN patients p ON sc.student_id = p.id
         LEFT JOIN athletes a ON p.id = a.patient_id
-        WHERE a.house_id = ? AND sc.used = 0
+        WHERE a.house_id = ? AND a.active = 1 AND sc.used = 0
     `;
   db.all(query, [houseId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -1713,8 +1729,8 @@ function handleCardUsage(req, res) {
     SELECT sc.id as sc_id, sc.student_id, sc.hash, c.name as cname, a.id as athlete_id, a.house_id
     FROM student_cards sc
     JOIN cards c ON sc.card_id = c.id
-    LEFT JOIN athletes a ON a.patient_id = sc.student_id
-    WHERE sc.id = ? AND sc.used = 0
+    JOIN athletes a ON a.patient_id = sc.student_id
+    WHERE sc.id = ? AND sc.used = 0 AND a.active = 1
   `, [student_card_id], (err, row) => {
     // Note: Hash match was removed from the query condition and moved below for robust matching
     if (err) return res.status(500).json({ error: err.message });
@@ -1941,7 +1957,7 @@ function handleCardUsage(req, res) {
           return res.status(400).json({ error: "Capitão aliado não informado." });
         }
         db.get(
-          "SELECT a.id, p.name FROM athletes a JOIN patients p ON a.patient_id = p.id WHERE a.house_id = ? AND a.is_captain = 1 LIMIT 1",
+          "SELECT a.id, p.name FROM athletes a JOIN patients p ON a.patient_id = p.id WHERE a.house_id = ? AND a.is_captain = 1 AND a.active = 1 LIMIT 1",
           [target_house_id],
           (err, alliedCaptain) => {
             if (err || !alliedCaptain) { db.run("ROLLBACK"); return res.status(400).json({ error: "Capitão da casa alvo não encontrado." }); }
@@ -1983,7 +1999,7 @@ function handleCardUsage(req, res) {
               FROM student_cards sc
               JOIN cards c ON sc.card_id = c.id
               JOIN athletes a ON a.patient_id = sc.student_id
-              WHERE a.house_id = ? AND sc.used = 0
+              WHERE a.house_id = ? AND a.active = 1 AND sc.used = 0
               ORDER BY c.rarity, c.name
             `, [target_house_id], (err, cards) => {
               if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
@@ -2133,12 +2149,29 @@ app.post('/api/cards/react', (req, res) => {
       if (action === 'ACEITAR') {
         // O alvo aceitou o golpe antecipadamente ou o tempo expirou
         // O ideal era processar via cron, mas via requisição:
-        // Se for Ladino: -3 pontos da casa alvo e +3 pro atacante
+        // Se for Ladino: -3 pontos da casa alvo E +3 pro atacante (TRANSAÇÃO ATÔMICA)
         if (pendingAttack.card_name === "Ladino") {
-          db.run("UPDATE card_queue SET status = 'EXECUTADO' WHERE id = ?", [pendingAttack.id]);
-          db.run("INSERT INTO house_points_log (house_id, student_id, points_awarded, description) VALUES (?, ?, ?, ?)", [pendingAttack.target_house_id, student_id, -3, `Ataque Ladino originado por ${pendingAttack.attacker_id}`]);
-          db.run("COMMIT");
-          return res.json({ success: true, message: "Você aceitou o destino do Ladino. Foram debitados -3 pontos." });
+          // Buscar house_id do atacante para transferência
+          db.get("SELECT house_id FROM athletes WHERE id = ?", [pendingAttack.attacker_id], (err, attacker) => {
+            if (err || !attacker) {
+              db.run("ROLLBACK");
+              return res.status(500).json({ error: "Casa do atacante não encontrada" });
+            }
+
+            // TRANSAÇÃO ATÔMICA: ambas operações ou nenhuma
+            db.run("UPDATE card_queue SET status = 'EXECUTADO' WHERE id = ?", [pendingAttack.id]);
+            
+            // Subtrai -3 da casa alvo
+            db.run("INSERT INTO house_points_log (house_id, student_id, points_awarded, description, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)", 
+              [pendingAttack.target_house_id, student_id, -3, `Ataque Ladino originado por ${pendingAttack.attacker_id}`]);
+            
+            // Adiciona +3 para a casa atacante
+            db.run("INSERT INTO house_points_log (house_id, student_id, points_awarded, description, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)", 
+              [attacker.house_id, pendingAttack.attacker_id, 3, `Carta Ladino — roubo de meinhas completado`]);
+            
+            db.run("COMMIT");
+            return res.json({ success: true, message: "Você aceitou o destino do Ladino. Foram debitados -3 pontos. Atacante ganhou +3." });
+          });
         } else if (pendingAttack.card_name === "Zica") {
           db.run("UPDATE card_queue SET status = 'EXECUTADO' WHERE id = ?", [pendingAttack.id]);
           db.run("COMMIT");
@@ -2250,7 +2283,7 @@ app.get('/api/houses/:id/cards-inventory', (req, res) => {
     FROM student_cards sc
     JOIN cards c ON sc.card_id = c.id
     JOIN athletes a ON a.patient_id = sc.student_id
-    WHERE a.house_id = ? AND sc.used = 0
+    WHERE a.house_id = ? AND a.active = 1 AND sc.used = 0
     ORDER BY c.rarity, c.name
   `, [houseId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -2452,32 +2485,56 @@ app.get('/api/student-portal/:id', (req, res) => {
           const now = new Date();
           const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
           const currentYear = now.getFullYear();
-          const rankQuery = `
-            SELECT h.name,
+              const rankQuery = `
+            SELECT h.id, h.name,
                    (SELECT COALESCE(SUM(CASE WHEN sc.points IS NOT NULL THEN sc.points ELSE sr.value END), 0)
                     FROM athletes a
                     LEFT JOIN scores sc ON a.patient_id = sc.athlete_id
                     LEFT JOIN scoring_rules sr ON sc.rule_id = sr.id
-                    WHERE a.house_id = h.id) as total_meinhas,
+                    WHERE a.house_id = h.id AND a.active = 1) as total_meinhas,
                    (SELECT target FROM meta_meinhas WHERE house_id = h.id AND month = ? AND year = ? LIMIT 1) as monthly_target
             FROM houses h WHERE h.active = 1
           `;
           
           db.all(rankQuery, [currentMonth, currentYear], (err, rankRows) => {
-            const ranking = (rankRows || []).map(r => {
-              const target = r.monthly_target || 100;
-              let ps = (r.total_meinhas / target) * 10;
-              if (ps > 10) ps = 10;
-              return { name: r.name, total_points: parseFloat(ps.toFixed(1)) };
-            });
+            if (err) {
+              return res.status(500).json({ error: err.message });
+            }
 
-            res.json({
-              patient: patient,
-              house: house || { name: 'Sem Casa', color: '#000033' },
-              athlete: { totalScore: totalScore },
-              scores: scores || [],
-              ranking: ranking
-            });
+            // Processar TRAPACA para cada casa no ranking
+            const processRankHouses = (idx) => {
+              if (idx >= rankRows.length) {
+                // Todas processadas
+                const ranking = (rankRows || []).map(r => {
+                  const target = r.monthly_target || 100;
+                  let ps = (r.total_meinhas / target) * 10;
+                  if (ps > 10) ps = 10;
+                  return { name: r.name, total_points: parseFloat(ps.toFixed(1)) };
+                });
+
+                res.json({
+                  patient: patient,
+                  house: house || { name: 'Sem Casa', color: '#000033' },
+                  athlete: { totalScore: totalScore },
+                  scores: scores || [],
+                  ranking: ranking
+                });
+                return;
+              }
+
+              const rankRow = rankRows[idx];
+              // Checar TRAPACA para esta casa
+              db.get("SELECT id FROM active_effects WHERE house_id = ? AND effect_type = 'TRAPACA' AND expires_at > CURRENT_TIMESTAMP LIMIT 1",
+                [rankRow.id], (err, trapaca) => {
+                if (!err && trapaca) {
+                  rankRow.monthly_target = Math.ceil((rankRow.monthly_target || 100) * 1.15);
+                }
+                processRankHouses(idx + 1);
+              });
+            };
+
+            // Extrair IDs das casas para verificação
+            processRankHouses(0);
           });
         });
       });
@@ -2696,10 +2753,17 @@ app.post('/api/admin/import-points', uploadExcel.single('file'), (req, res) => {
         }
 
         // CEO Order: BUSCA POR NOME EXATO "WHERE p.name = ?"
-        db.get("SELECT a.id as athlete_id, a.house_id, a.patient_id FROM athletes a JOIN patients p ON a.patient_id = p.id WHERE p.name = ?", [nome], (err, athlete) => {
+        db.get("SELECT a.id as athlete_id, a.house_id, a.patient_id FROM athletes a JOIN patients p ON a.patient_id = p.id WHERE p.name = ? AND a.active = 1", [nome], (err, athlete) => {
           if (err || !athlete) {
-            errors.push(`Linha ${idx + 2}: Aluno exato '${nome}' não encontrado.`);
-            checkDone();
+            // Se o atleta está cadastrado mas desativado, trata como não encontrado especial
+            db.get("SELECT a.id FROM athletes a JOIN patients p ON a.patient_id = p.id WHERE p.name = ? AND a.active = 0", [nome], (err2, inactiveAthlete) => {
+              if (inactiveAthlete) {
+                errors.push(`Linha ${idx + 2}: Aluno '${nome}' está desativado e não pode receber pontos.`);
+              } else {
+                errors.push(`Linha ${idx + 2}: Aluno exato '${nome}' não encontrado.`);
+              }
+              checkDone();
+            });
           } else {
             // Mapeamento Motivo -> rule_id em scoring_rules
             db.get("SELECT id, value FROM scoring_rules WHERE name = ? AND active = 1", [motivo], (err, ruleMatched) => {
@@ -2735,14 +2799,15 @@ app.post('/api/admin/import-points', uploadExcel.single('file'), (req, res) => {
               }
 
               function proceedWithInsert(resolvedRule) {
-                const rule_id = resolvedRule ? resolvedRule.id : 99;
-                // Se achou uma regra oficial, usa o valor da regra (ex: Presença = 1).
-                // Caso contrário (Adhoc/Extra), usa o ponto que está na planilha.
-                const points_to_award = resolvedRule && resolvedRule.value !== 0 ? resolvedRule.value : pontos;
-
                 if (!resolvedRule) {
-                  errors.push(`Linha ${idx + 2}: Motivo "${motivo}" não mapeado. Usando "Adhoc / Extra" (ID 99).`);
+                  errors.push(`Linha ${idx + 2}: Motivo '${motivo}' não encontrou regra válida. Linha ignorada.`);
+                  checkDone();
+                  return;
                 }
+
+                const rule_id = resolvedRule.id;
+                // Se achou uma regra oficial, usa o valor da regra (ex: Presença = 1).
+                const points_to_award = resolvedRule.value !== 0 ? resolvedRule.value : pontos;
 
                 db.run(`INSERT INTO scores (athlete_id, rule_id, points, created_at)
                         VALUES (?, ?, ?, ?)`,
@@ -2920,6 +2985,7 @@ app.get('/api/admin/export-template', (req, res) => {
     JOIN patients p ON a.patient_id = p.id
     JOIN houses h ON a.house_id = h.id
     WHERE p.role = 'atleta'
+      AND a.active = 1
     ORDER BY h.name, p.name
   `, [], (err, athletes) => {
     if (err) {
@@ -2981,7 +3047,7 @@ function runWeeklyConsolidation() {
     SELECT a.house_id, SUM(sc.points) as total
     FROM scores sc
     JOIN athletes a ON sc.athlete_id = a.patient_id
-    WHERE sc.created_at >= ?
+    WHERE sc.created_at >= ? AND a.active = 1
     GROUP BY a.house_id
     ORDER BY total DESC
   `;
@@ -3050,8 +3116,8 @@ function runMonthlyBonus() {
         const monthEnd = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         
         db.get(`SELECT SUM(sc.points) as total FROM scores sc JOIN athletes a ON sc.athlete_id = a.patient_id 
-                WHERE a.house_id = ? AND sc.created_at >= ? AND sc.created_at < ?`, 
-                [house.id, monthStart, monthEnd], (err, result) => {
+          WHERE a.house_id = ? AND a.active = 1 AND sc.created_at >= ? AND sc.created_at < ?`, 
+          [house.id, monthStart, monthEnd], (err, result) => {
           
           const reached = (result.total || 0) >= goal;
           if (reached) {
@@ -3157,7 +3223,7 @@ app.post('/api/attendance/bulk', (req, res) => {
   const { attendances, admin_id, admin_role } = req.body;
   
   // Validar permissão (admin ou coach)
-  const isAdmin = (admin_id === 9999) || (admin_role === 'admin' || admin_role === 'coach');
+  const isAdmin = (admin_role === 'admin' || admin_role === 'coach');
   if (!isAdmin) {
     return res.status(403).json({ error: 'Acesso negado. Apenas administradores ou coaches podem lançar frequência.' });
   }
@@ -3211,6 +3277,73 @@ app.post('/api/attendance/bulk', (req, res) => {
   });
 
   res.json({ success: true, count: processed });
+});
+
+// --- ROTA DE CONSULTA DE MANDATO ---
+app.get('/api/admin/mandato-status', (req, res) => {
+  const now = new Date();
+  const year = now.getFullYear();
+  
+  // Definir mandatos fixos conforme regulamento
+  const mandatos = [
+    { 
+      numero: 1, 
+      inicio: new Date(year, 2, 1), // 01/03/2026
+      fim: new Date(year, 4, 31)     // 31/05/2026
+    },
+    {
+      numero: 2,
+      inicio: new Date(year, 5, 1),  // 01/06/2026
+      fim: new Date(year, 7, 31)     // 31/08/2026
+    },
+    {
+      numero: 3,
+      inicio: new Date(year, 8, 1),  // 01/09/2026
+      fim: new Date(year, 10, 30)    // 30/11/2026
+    },
+    {
+      numero: 4,
+      inicio: new Date(year, 11, 1), // 01/12/2026
+      fim: new Date(year, 11, 20)    // 20/12/2026
+    }
+  ];
+
+  // Encontrar mandato atual
+  let mandatoAtual = null;
+  for (const m of mandatos) {
+    if (now >= m.inicio && now <= m.fim) {
+      mandatoAtual = m;
+      break;
+    }
+  }
+
+  if (!mandatoAtual) {
+    return res.status(400).json({ 
+      error: "Nenhum mandato ativo no momento",
+      data: null
+    });
+  }
+
+  // Calcular dias restantes
+  const diffMs = mandatoAtual.fim - now;
+  const diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  
+  // Determinar se há alerta (7 dias ou menos)
+  const alerta = diasRestantes <= 7 && diasRestantes > 0;
+
+  // Formatar datas
+  const formatDate = (d) => d.toISOString().split('T')[0];
+
+  res.json({
+    mandato_atual: mandatoAtual.numero,
+    inicio: formatDate(mandatoAtual.inicio),
+    fim: formatDate(mandatoAtual.fim),
+    dias_restantes: diasRestantes,
+    alerta: alerta,
+    mensagem: alerta 
+      ? `Atenção! Restam ${diasRestantes} dias para término do mandato. Prepare a eleição do próximo capitão.`
+      : `Mandato ${mandatoAtual.numero} em andamento. ${diasRestantes} dias restantes.`
+  });
 });
 
 // Executa as triggers diariamente
